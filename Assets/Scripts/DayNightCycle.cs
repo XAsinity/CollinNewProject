@@ -3,34 +3,42 @@ using UnityEngine;
 public class DayNightCycle : MonoBehaviour
 {
     [Header("Time Settings")]
-    [Tooltip("Length of a full day in real-time seconds")]
-    public float dayLengthInSeconds = 120f;
+    [Tooltip("Length of a full day in real-time seconds. Default is 60s (1 minute) for testing — increase for production (e.g. 600 = 10 minutes, 1440 = 24 minutes).")]
+    public float dayLengthInSeconds = 60f;
 
     [Range(0f, 1f)]
-    [Tooltip("Starting time of day (0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset)")]
+    [Tooltip("Starting time (0=midnight, 0.25=sunrise, 0.5=noon, 0.75=sunset)")]
     public float startTimeOfDay = 0.25f;
 
-    [Header("Sun & Moon")]
+    [Header("Celestial Bodies")]
+    [Tooltip("Sun directional light")]
     public Light sunLight;
+    [Tooltip("Moon directional light")]
     public Light moonLight;
 
-    [Header("Sun Settings")]
-    public Gradient sunColor;
-    public AnimationCurve sunIntensity;
+    [Header("Sun Light Settings")]
+    public Gradient sunLightColor;
+    public AnimationCurve sunLightIntensity;
 
-    [Header("Moon Settings")]
-    public Gradient moonColor;
-    public AnimationCurve moonIntensity;
+    [Header("Moon Light Settings")]
+    public Gradient moonLightColor;
+    public AnimationCurve moonLightIntensity;
+
+    [Header("Skybox Material")]
+    [Tooltip("Assign the material using Custom/DayNightSkybox shader")]
+    public Material skyboxMaterial;
 
     [Header("Ambient Light")]
     public Gradient ambientColor;
+    public AnimationCurve ambientIntensity;
 
-    [Header("Skybox (Optional)")]
-    [Tooltip("Assign a skybox material that uses _Exposure or _AtmosphereThickness")]
-    public Material skyboxMaterial;
-    public AnimationCurve skyboxExposure;
+    [Header("Fog")]
+    public bool enableFog = true;
+    public Gradient fogColor;
+    public AnimationCurve fogDensityCurve;
 
     private float currentTimeOfDay;
+    private bool isPaused = false;
 
     void Start()
     {
@@ -39,62 +47,88 @@ public class DayNightCycle : MonoBehaviour
 
     void Update()
     {
-        // Advance time
-        currentTimeOfDay += Time.deltaTime / dayLengthInSeconds;
-        if (currentTimeOfDay >= 1f)
-            currentTimeOfDay -= 1f;
+        if (!isPaused)
+        {
+            currentTimeOfDay += Time.deltaTime / dayLengthInSeconds;
+            if (currentTimeOfDay >= 1f) currentTimeOfDay -= 1f;
+        }
 
-        UpdateSun();
-        UpdateMoon();
+        UpdateSkyboxMaterial();
+        UpdateSunLight();
+        UpdateMoonLight();
         UpdateAmbient();
-        UpdateSkybox();
+        UpdateFog();
     }
 
-    void UpdateSun()
+    void UpdateSkyboxMaterial()
     {
-        // Sun rotates 360° over one full day cycle
-        // At time 0.25 (sunrise) sun is at horizon (0°), at 0.5 (noon) sun is overhead (90°)
+        if (skyboxMaterial == null) return;
+
+        skyboxMaterial.SetFloat("_TimeOfDay", currentTimeOfDay);
+
+        if (sunLight != null)
+            skyboxMaterial.SetVector("_SunDirection", -sunLight.transform.forward);
+
+        if (moonLight != null)
+            skyboxMaterial.SetVector("_MoonDirection", -moonLight.transform.forward);
+    }
+
+    void UpdateSunLight()
+    {
+        if (sunLight == null) return;
+
         float sunAngle = (currentTimeOfDay - 0.25f) * 360f;
         sunLight.transform.rotation = Quaternion.Euler(sunAngle, 170f, 0f);
 
-        // Evaluate color and intensity from curves/gradients
-        sunLight.color = sunColor.Evaluate(currentTimeOfDay);
-        sunLight.intensity = sunIntensity.Evaluate(currentTimeOfDay);
-
-        // Disable sun when below horizon
+        sunLight.color = sunLightColor.Evaluate(currentTimeOfDay);
+        sunLight.intensity = sunLightIntensity.Evaluate(currentTimeOfDay);
         sunLight.enabled = sunLight.intensity > 0.01f;
     }
 
-    void UpdateMoon()
+    void UpdateMoonLight()
     {
-        // Moon is opposite the sun (offset by 0.5 / 180°)
+        if (moonLight == null) return;
+
         float moonAngle = (currentTimeOfDay - 0.75f) * 360f;
         moonLight.transform.rotation = Quaternion.Euler(moonAngle, 170f, 0f);
 
-        moonLight.color = moonColor.Evaluate(currentTimeOfDay);
-        moonLight.intensity = moonIntensity.Evaluate(currentTimeOfDay);
-
+        moonLight.color = moonLightColor.Evaluate(currentTimeOfDay);
+        moonLight.intensity = moonLightIntensity.Evaluate(currentTimeOfDay);
         moonLight.enabled = moonLight.intensity > 0.01f;
     }
 
     void UpdateAmbient()
     {
         RenderSettings.ambientLight = ambientColor.Evaluate(currentTimeOfDay);
+        RenderSettings.ambientIntensity = ambientIntensity.Evaluate(currentTimeOfDay);
     }
 
-    void UpdateSkybox()
+    void UpdateFog()
     {
-        if (skyboxMaterial != null)
-        {
-            skyboxMaterial.SetFloat("_Exposure", skyboxExposure.Evaluate(currentTimeOfDay));
-        }
+        RenderSettings.fog = enableFog;
+        if (!enableFog) return;
+        RenderSettings.fogColor = fogColor.Evaluate(currentTimeOfDay);
+        RenderSettings.fogDensity = fogDensityCurve.Evaluate(currentTimeOfDay);
     }
 
-    /// <summary>
-    /// Returns the current time of day (0-1). Useful for UI or other systems.
-    /// </summary>
-    public float GetCurrentTimeOfDay()
+    // ─── PUBLIC API ───────────────────────────────────────
+
+    public float GetCurrentTimeOfDay() => currentTimeOfDay;
+
+    public string GetTimeAsString()
     {
-        return currentTimeOfDay;
+        float hours = currentTimeOfDay * 24f;
+        int h = Mathf.FloorToInt(hours);
+        int m = Mathf.FloorToInt((hours - h) * 60f);
+        return string.Format("{0:D2}:{1:D2}", h, m);
     }
+
+    public bool IsDay() => currentTimeOfDay > 0.2f && currentTimeOfDay < 0.8f;
+    public bool IsNight() => !IsDay();
+
+    public void SetTimeOfDay(float time) => currentTimeOfDay = Mathf.Clamp01(time);
+    public void SetDayLength(float seconds) => dayLengthInSeconds = Mathf.Max(1f, seconds);
+    public void PauseCycle() => isPaused = true;
+    public void ResumeCycle() => isPaused = false;
+    public void TogglePause() => isPaused = !isPaused;
 }
