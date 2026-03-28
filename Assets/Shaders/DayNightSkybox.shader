@@ -149,8 +149,8 @@ Shader "Custom/DayNightSkybox"
         _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
 
         [Header(Cloud Shell Altitude)]
-        _CloudShellRadius ("Cloud Shell Radius", Range(500, 20000)) = 10000.0
-        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 20000)) = 15000.0
+        _CloudShellRadius ("Cloud Shell Radius", Range(500, 100000)) = 25000.0
+        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 100000)) = 40000.0
     }
 
     SubShader
@@ -500,9 +500,9 @@ Shader "Custom/DayNightSkybox"
                 float edgeWidth = max(edgeSoftness * 2.0, 0.15);
                 cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
 
-                // Horizon fade: smoothstep(0.01, 0.15) gives a wide, gradual fade so clouds
-                // thin out naturally near the horizon rather than hitting a hard cutoff wall.
-                float horizonFade = smoothstep(0.01, 0.15, ndir.y);
+                // Horizon fade: smoothstep(0.005, 0.08) gives an even more gradual fade so
+                // clouds thin out imperceptibly near the horizon with no visible ring cutoff.
+                float horizonFade = smoothstep(0.005, 0.08, ndir.y);
                 cloudMask *= horizonFade;
 
                 return cloudMask;
@@ -747,7 +747,7 @@ Shader "Custom/DayNightSkybox"
                         float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, edgeBright2, density2);
                         cloudColor2 = shadowBlend2 * (1.0 - _Cloud2Darkness * (1.0 - density2) * 0.6);
                         // Subtle low-frequency color variation using 3D noise on the shell surface
-                        float3 colorPos2 = normalize(dir) * _Cloud2ShellRadius * _Cloud2Scale * 0.0006
+                        float3 colorPos2 = normalize(dir) * _Cloud2ShellRadius * _Cloud2Scale * 0.0003
                                          + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _Cloud2Speed * _Time.y;
                         float colorVar2 = Noise3D(colorPos2 * 0.4);
                         float colorVarWeight2 = lerp(0.03, 0.01, saturate(density2 - 0.5));
@@ -772,7 +772,7 @@ Shader "Custom/DayNightSkybox"
                 float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, density);
                 float3 cloudColorResult = shadowBlend * (1.0 - _CloudDarkness * (1.0 - density) * 0.6);
                 // Subtle low-frequency color variation — breaks uniform tint across large cloud formations
-                float3 colorPos1 = normalize(dir) * _CloudShellRadius * _CloudScale * 0.0006
+                float3 colorPos1 = normalize(dir) * _CloudShellRadius * _CloudScale * 0.0003
                                  + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _CloudSpeed * _Time.y;
                 float colorVar1 = Noise3D(colorPos1 * 0.4);
                 float colorVarWeight1 = lerp(0.03, 0.01, saturate(density - 0.5));

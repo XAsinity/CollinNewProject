@@ -33,10 +33,16 @@ public class WeatherManager : MonoBehaviour
     public bool autoWeather = false;
 
     [Tooltip("Minimum real-time seconds before auto-weather picks a new condition")]
-    public float minTimeBetweenChanges = 30f;
+    public float minTimeBetweenChanges = 60f;
 
     [Tooltip("Maximum real-time seconds before auto-weather picks a new condition")]
-    public float maxTimeBetweenChanges = 120f;
+    public float maxTimeBetweenChanges = 180f;
+
+    [Tooltip("When the active weather profile's max cloud coverage exceeds this value, " +
+             "auto-weather will only pick profiles with similarly high coverage so stormy " +
+             "conditions are not abruptly replaced by clear skies. Set to 1 to disable biasing.")]
+    [Range(0f, 1f)]
+    public float autoWeatherCloudBiasThreshold = 0.6f;
 
     [Header("Debug")]
     [Tooltip("Press in Play mode to manually trigger a random weather change")]
@@ -381,10 +387,19 @@ public class WeatherManager : MonoBehaviour
     {
         if (weatherProfiles == null || weatherProfiles.Length == 0) return;
 
+        // Coverage bias: if the currently active profile is heavily cloudy (max coverage exceeds
+        // autoWeatherCloudBiasThreshold), bias auto-weather to only pick profiles with similar
+        // cloud coverage so the sky doesn't abruptly clear during a storm.
+        float currentMaxCoverage = currentWeather != null ? currentWeather.cloudCoverageMax : 0f;
+        bool requireCloudy = currentMaxCoverage > autoWeatherCloudBiasThreshold;
+
         Weather.WeatherProfile next = weatherProfiles[Random.Range(0, weatherProfiles.Length)];
         int attempts = 0;
-        while (next == currentWeather && weatherProfiles.Length > 1 && attempts < 10)
+        while (attempts < 20)
         {
+            bool differentFromCurrent = next != currentWeather || weatherProfiles.Length == 1;
+            bool coverageOk = !requireCloudy || next.cloudCoverageMax > autoWeatherCloudBiasThreshold;
+            if (differentFromCurrent && coverageOk) break;
             next = weatherProfiles[Random.Range(0, weatherProfiles.Length)];
             attempts++;
         }
