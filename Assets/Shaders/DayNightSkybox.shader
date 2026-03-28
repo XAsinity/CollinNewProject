@@ -729,8 +729,12 @@ Shader "Custom/DayNightSkybox"
                         float3 edgeBright2 = litColor2 * lerp(1.2, 1.0, density2);
                         float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, edgeBright2, density2);
                         cloudColor2 = shadowBlend2 * (1.0 - _Cloud2Darkness * (1.0 - density2) * 0.6);
+                        // Subtle low-frequency color variation — breaks uniform color across the cloud mass
+                        float2 colorVariUV2 = cloudPlaneUV2 * _Cloud2Scale * 0.15
+                                            + _CloudDirection.xz * _Cloud2Speed * _Time.y;
+                        cloudColor2 += ValueNoise(colorVariUV2) * 0.08;
                         // Power curve: edges wispy, cores opaque
-                        alpha2 = pow(max(density2 * _Cloud2Opacity, 0.0), 0.7);
+                        alpha2 = pow(density2 * _Cloud2Opacity, 0.7);
                     }
                 }
 
@@ -748,8 +752,12 @@ Shader "Custom/DayNightSkybox"
                 float3 edgeBright = litColor * lerp(1.35, 1.0, density);
                 float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, density);
                 float3 cloudColorResult = shadowBlend * (1.0 - _CloudDarkness * (1.0 - density) * 0.6);
+                // Subtle low-frequency color variation — breaks uniform tint across large cloud formations
+                float2 colorVariUV = cloudPlaneUV * _CloudScale * 0.15
+                                   + _CloudDirection.xz * _CloudSpeed * _Time.y;
+                cloudColorResult += ValueNoise(colorVariUV) * 0.1;
                 // Power curve: edges wispy, cores opaque
-                float alpha1 = pow(max(density * heightMask * _CloudAlpha, 0.0), 0.7);
+                float alpha1 = pow(density * heightMask * _CloudAlpha, 0.7);
 
                 // ── Composite Layer 2 over Layer 1 using the standard "over" operator
                 if (alpha1 > 0.001 && alpha2 > 0.001)
