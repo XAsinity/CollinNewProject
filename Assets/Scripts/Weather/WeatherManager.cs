@@ -49,6 +49,8 @@ public class WeatherManager : MonoBehaviour
     private float _transitionProgress = 1f;
     private float _fromCoverage = 0f;
     private float _toCoverage = 0f;
+    private float _fromCoverage2 = 0f;
+    private float _toCoverage2 = 0f;
 
     private float _autoWeatherTimer = 0f;
 
@@ -65,6 +67,12 @@ public class WeatherManager : MonoBehaviour
     private float _baseCloudSpeed     = 0.3f;
     private float _baseCloudDensity   = 1f;
     private float _baseCloudSharpness = 1.5f;
+
+    // Base Cloud Layer 2 values cached from the material at Start.
+    private float _baseCloud2Scale     = 8f;
+    private float _baseCloud2Speed     = 0.15f;
+    private float _baseCloud2Density   = 0.8f;
+    private float _baseCloud2Sharpness = 2f;
 
     // Current lerped volume influence (controls _weatherVolume.weight)
     private float _currentVolumeInfluence = 0f;
@@ -97,6 +105,15 @@ public class WeatherManager : MonoBehaviour
             _baseCloudSpeed     = _skyboxMaterial.GetFloat("_CloudSpeed");
             _baseCloudDensity   = _skyboxMaterial.GetFloat("_CloudDensity");
             _baseCloudSharpness = _skyboxMaterial.GetFloat("_CloudSharpness");
+
+            if (_skyboxMaterial.HasProperty("_Cloud2Scale"))
+                _baseCloud2Scale = _skyboxMaterial.GetFloat("_Cloud2Scale");
+            if (_skyboxMaterial.HasProperty("_Cloud2Speed"))
+                _baseCloud2Speed = _skyboxMaterial.GetFloat("_Cloud2Speed");
+            if (_skyboxMaterial.HasProperty("_Cloud2Density"))
+                _baseCloud2Density = _skyboxMaterial.GetFloat("_Cloud2Density");
+            if (_skyboxMaterial.HasProperty("_Cloud2Sharpness"))
+                _baseCloud2Sharpness = _skyboxMaterial.GetFloat("_Cloud2Sharpness");
         }
 
         SetupVolume();
@@ -107,6 +124,8 @@ public class WeatherManager : MonoBehaviour
             _targetWeather = currentWeather;
             _fromCoverage = Random.Range(currentWeather.cloudCoverageMin, currentWeather.cloudCoverageMax);
             _toCoverage = _fromCoverage;
+            _fromCoverage2 = Random.Range(currentWeather.cloud2CoverageMin, currentWeather.cloud2CoverageMax);
+            _toCoverage2 = _fromCoverage2;
             _transitionProgress = 1f;
             ApplyWeatherLerp(currentWeather, currentWeather, 1f);
         }
@@ -172,12 +191,17 @@ public class WeatherManager : MonoBehaviour
             ? _skyboxMaterial.GetFloat("_CloudCoverage")
             : (_sourceWeather != null ? _fromCoverage : 0f);
 
+        _fromCoverage2 = (_skyboxMaterial != null && _skyboxMaterial.HasProperty("_Cloud2Coverage"))
+            ? _skyboxMaterial.GetFloat("_Cloud2Coverage")
+            : (_sourceWeather != null ? _fromCoverage2 : 0f);
+
         _sourceWeather = currentWeather ?? profile;
         _targetWeather = profile;
         currentWeather = profile;
 
         // Pick a random target coverage within the new profile's diversity range
         _toCoverage = Random.Range(profile.cloudCoverageMin, profile.cloudCoverageMax);
+        _toCoverage2 = Random.Range(profile.cloud2CoverageMin, profile.cloud2CoverageMax);
 
         _transitionProgress = 0f;
     }
@@ -246,6 +270,7 @@ public class WeatherManager : MonoBehaviour
 
         // ── Cloud coverage (captured random values, no per-frame jitter)
         float cloudCoverage = Mathf.Lerp(_fromCoverage, _toCoverage, t);
+        float cloud2Coverage = Mathf.Lerp(_fromCoverage2, _toCoverage2, t);
 
         // ── Apply skybox material overrides
         if (_skyboxMaterial != null)
@@ -301,17 +326,16 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_HorizonHazeFalloff",
                 Mathf.Lerp(from.horizonHazeFalloff, to.horizonHazeFalloff, t));
 
-            // Cloud Layer 2
-            _skyboxMaterial.SetFloat("_CloudLayer2Coverage",
-                Mathf.Lerp(from.cloudLayer2Coverage, to.cloudLayer2Coverage, t));
-            _skyboxMaterial.SetFloat("_CloudLayer2Scale",
-                Mathf.Lerp(from.cloudLayer2Scale, to.cloudLayer2Scale, t));
-            _skyboxMaterial.SetFloat("_CloudLayer2Speed",
-                Mathf.Lerp(from.cloudLayer2Speed, to.cloudLayer2Speed, t));
-            _skyboxMaterial.SetFloat("_CloudLayer2Opacity",
-                Mathf.Lerp(from.cloudLayer2Opacity, to.cloudLayer2Opacity, t));
-            _skyboxMaterial.SetFloat("_CloudLayer2Height",
-                Mathf.Lerp(from.cloudLayer2Height, to.cloudLayer2Height, t));
+            // Cloud Layer 2 — higher altitude, uses _Cloud2* shader properties
+            _skyboxMaterial.SetFloat("_Cloud2Coverage", cloud2Coverage);
+            _skyboxMaterial.SetFloat("_Cloud2Density",   _baseCloud2Density   * Mathf.Lerp(from.cloud2DensityMultiplier,   to.cloud2DensityMultiplier,   t));
+            _skyboxMaterial.SetFloat("_Cloud2Sharpness", _baseCloud2Sharpness * Mathf.Lerp(from.cloud2SharpnessMultiplier, to.cloud2SharpnessMultiplier, t));
+            _skyboxMaterial.SetFloat("_Cloud2Scale",     _baseCloud2Scale     * Mathf.Lerp(from.cloud2ScaleMultiplier,     to.cloud2ScaleMultiplier,     t));
+            _skyboxMaterial.SetFloat("_Cloud2Speed",     _baseCloud2Speed     * Mathf.Lerp(from.cloud2SpeedMultiplier,     to.cloud2SpeedMultiplier,     t));
+            _skyboxMaterial.SetFloat("_Cloud2Brightness", Mathf.Lerp(from.cloud2Brightness, to.cloud2Brightness, t));
+            _skyboxMaterial.SetFloat("_Cloud2Darkness",   Mathf.Lerp(from.cloud2Darkness,   to.cloud2Darkness,   t));
+            _skyboxMaterial.SetColor("_Cloud2Color",       Color.Lerp(from.cloud2Color,       to.cloud2Color,       t));
+            _skyboxMaterial.SetColor("_Cloud2ShadowColor", Color.Lerp(from.cloud2ShadowColor, to.cloud2ShadowColor, t));
         }
 
         // ── Apply DayNightCycle multipliers
