@@ -159,14 +159,33 @@ public class WeatherManager : MonoBehaviour
             // Apply a sensible clear-sky default so the first frame is not garbage.
             if (_skyboxMaterial != null)
             {
-                _skyboxMaterial.SetFloat("_CloudCoverage", 0f);
-                _skyboxMaterial.SetFloat("_Cloud2Coverage", 0f);
-                _skyboxMaterial.SetFloat("_CloudBrightness", 1f);
-                _skyboxMaterial.SetFloat("_CloudDarkness", 0.3f);
+                _skyboxMaterial.SetFloat("_CloudCoverage",    0f);
+                _skyboxMaterial.SetFloat("_Cloud2Coverage",   0f);
+                _skyboxMaterial.SetFloat("_CloudDensity",     _baseCloudDensity);
+                _skyboxMaterial.SetFloat("_CloudSharpness",   _baseCloudSharpness);
+                _skyboxMaterial.SetFloat("_CloudScale",       _baseCloudScale);
+                _skyboxMaterial.SetFloat("_CloudSpeed",       _baseCloudSpeed);
+                _skyboxMaterial.SetFloat("_CloudEdgeSoftness", 0.2f);
+                _skyboxMaterial.SetFloat("_CloudVariation",   0.5f);
+                _skyboxMaterial.SetVector("_CloudDirection",  new Vector4(1f, 0f, 0.5f, 0f));
+                _skyboxMaterial.SetFloat("_CloudBrightness",  1f);
+                _skyboxMaterial.SetFloat("_CloudDarkness",    0.3f);
+                _skyboxMaterial.SetColor("_CloudColor",       new Color(0.95f, 0.95f, 0.95f, 1f));
+                _skyboxMaterial.SetColor("_CloudShadowColor", new Color(0.35f, 0.35f, 0.40f, 1f));
+                _skyboxMaterial.SetFloat("_Cloud2Density",    _baseCloud2Density);
+                _skyboxMaterial.SetFloat("_Cloud2Sharpness",  _baseCloud2Sharpness);
+                _skyboxMaterial.SetFloat("_Cloud2Scale",      _baseCloud2Scale);
+                _skyboxMaterial.SetFloat("_Cloud2Speed",      _baseCloud2Speed);
+                _skyboxMaterial.SetFloat("_Cloud2Brightness", 1f);
+                _skyboxMaterial.SetFloat("_Cloud2Darkness",   0.3f);
+                _skyboxMaterial.SetColor("_Cloud2Color",       new Color(0.96f, 0.96f, 0.98f, 1f));
+                _skyboxMaterial.SetColor("_Cloud2ShadowColor", new Color(0.50f, 0.52f, 0.58f, 1f));
+                _skyboxMaterial.SetFloat("_Cloud2Opacity",    0.3f);
+                _skyboxMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
                 _skyboxMaterial.SetFloat("_DayAtmosphereStrength", 1f);
-                _skyboxMaterial.SetFloat("_HorizonGlowStrength", 1f);
-                _skyboxMaterial.SetFloat("_HorizonHazeStrength", _baseHorizonHazeStrength);
-                _skyboxMaterial.SetFloat("_StarBrightness", 1.2f); // base star brightness (same default used in ApplyWeatherLerp)
+                _skyboxMaterial.SetFloat("_HorizonGlowStrength",   1f);
+                _skyboxMaterial.SetFloat("_HorizonHazeStrength",   _baseHorizonHazeStrength);
+                _skyboxMaterial.SetFloat("_StarBrightness",        1.2f);
             }
         }
 
