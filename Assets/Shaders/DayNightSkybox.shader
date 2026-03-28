@@ -60,7 +60,7 @@ Shader "Custom/DayNightSkybox"
         _CloudColor ("Cloud Color Tint", Color) = (1, 1, 1, 1)
         _CloudShadowColor ("Cloud Shadow Color", Color) = (0.35, 0.35, 0.40, 1)
         _CloudHorizonCoverage ("Cloud Horizon Coverage", Range(0, 1)) = 0.8
-        _CloudEdgeSoftness ("Cloud Edge Softness", Range(0.0, 0.5)) = 0.2
+        _CloudEdgeSoftness ("Cloud Edge Softness", Range(0.0, 0.5)) = 0.35
         _CloudVariation ("Cloud Variation/Turbulence", Range(0, 1)) = 0.5
 
         [Header(Procedural Stars)]
@@ -432,37 +432,35 @@ Shader "Custom/DayNightSkybox"
                 // Lift flat-plane UV into 3D noise space.
                 // layerAltitude sets the Y slice so Layer 1 and Layer 2 read from
                 // separate regions of the noise field and appear as distinct sky layers.
-                float2 scaledUV = cloudUV * 0.3;
+                float2 scaledUV = cloudUV * 0.10;
 
-                // Pseudo-parallax thickness: sample FBM at two slightly different depth
-                // offsets and blend them. The difference gives an illusion of cloud volume —
-                // thick cores remain opaque while thin edges wisps away.
-                float3 p3Near = float3(scaledUV.x, layerAltitude - 0.08, scaledUV.y);
-                float3 p3Far  = float3(scaledUV.x, layerAltitude + 0.08, scaledUV.y);
+                // Pseudo-parallax thickness: sample FBM at two depth offsets far enough
+                // apart to create visible differences — thick cores stay opaque while thin
+                // areas vary between samples, giving an illusion of cloud volume.
+                float3 p3Near = float3(scaledUV.x, layerAltitude - 0.35, scaledUV.y);
+                float3 p3Far  = float3(scaledUV.x, layerAltitude + 0.35, scaledUV.y);
                 float baseShape = lerp(FBM(p3Near), FBM(p3Far), 0.5);
 
                 // Mid-frequency detail — adds billowy texture within cloud masses
-                float2 detailScaled = (cloudUV * 1.2 + windOffset * 0.15) * 0.8;
+                float2 detailScaled = (cloudUV * 0.3 + windOffset * 0.15) * 0.8;
                 float3 p3Detail = float3(detailScaled.x + 5.3, layerAltitude + 1.7, detailScaled.y + 3.1);
                 float detail = FBMFine(p3Detail);
 
                 // High-frequency wisps — thin edges, subtle variation
-                float2 wispScaled = cloudUV * 2.5 + windOffset * 0.3;
+                float2 wispScaled = cloudUV * 0.7 + windOffset * 0.3;
                 float3 p3Wisp = float3(wispScaled.x + 17.5, layerAltitude + 3.2, wispScaled.y + 11.1);
                 float wisps = FBM(p3Wisp);
 
-                // Blend: base shape controls WHERE, detail/wisps add surface character
-                // detailW=0.3 is fixed; wispW varies with variation for edge complexity
-                float detailW = 0.3;
-                float wispW = lerp(0.05, 0.15, saturate(variation));
-                float cloudNoise = baseShape * (0.7 - wispW) + detail * detailW + wisps * wispW;
+                // Blend: base shape controls WHERE, detail/wisps add billow character
+                // Weights sum to 1.0: 0.5 (base) + 0.35 (detail) + 0.15 (wisps)
+                float cloudNoise = lerp(baseShape, baseShape * 0.5 + detail * 0.35 + wisps * 0.15, saturate(variation));
 
                 // Coverage threshold: coverage=0 → no clouds, coverage=1 → full overcast
                 float cloudMask = cloudNoise - (1.0 - coverage);
                 cloudMask = saturate(cloudMask * sharpness * density);
 
                 // edgeSoftness controls smoothstep width: low=hard edges, high=wispy margins
-                float edgeWidth = max(edgeSoftness * 2.0, 0.15);
+                float edgeWidth = max(edgeSoftness * 1.5, 0.15);
                 cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
                 return cloudMask;
             }
