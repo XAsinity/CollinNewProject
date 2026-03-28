@@ -68,6 +68,10 @@ public class WeatherManager : MonoBehaviour
 
     private float _autoWeatherTimer = 0f;
 
+    // Bug 3 fix: prevents the auto-weather timer from overriding a manually set weather.
+    // Set to true when SetWeather() is called externally; cleared by UnlockWeather().
+    private bool _weatherLocked = false;
+
     private Material _skyboxMaterial;
     private Volume _weatherVolume;
     private VolumeProfile _runtimeProfile;
@@ -154,19 +158,25 @@ public class WeatherManager : MonoBehaviour
 
         SetupVolume();
 
+        // Bug 2 fix: Always force clear-sky state on play start so the first frame never
+        // shows glitched/dense clouds.  If a starting weather profile is assigned, we
+        // kick off a smooth transition from clear sky into that profile after one frame.
+        if (_skyboxMaterial != null)
+        {
+            _skyboxMaterial.SetFloat("_CloudCoverage",     0f);
+            _skyboxMaterial.SetFloat("_Cloud2Coverage",    0f);
+            _skyboxMaterial.SetFloat("_CloudEdgeSoftness", 0.35f);
+            _skyboxMaterial.SetFloat("_CloudVariation",    0.5f);
+            _skyboxMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
+        }
+        _fromCoverage  = 0f;
+        _fromCoverage2 = 0f;
+
         if (currentWeather != null)
         {
-            _sourceWeather = currentWeather;
-            _targetWeather = currentWeather;
-            _fromCoverage = Random.Range(currentWeather.cloudCoverageMin, currentWeather.cloudCoverageMax);
-            _toCoverage = _fromCoverage;
-            _fromCoverage2 = Random.Range(currentWeather.cloud2CoverageMin, currentWeather.cloud2CoverageMax);
-            _toCoverage2 = _fromCoverage2;
-            _transitionProgress = 1f;
-            ApplyWeatherLerp(currentWeather, currentWeather, 1f);
-            // Immediately sync the volume weight so there is no one-frame gap at boot.
-            if (_weatherVolume != null)
-                _weatherVolume.weight = _currentVolumeInfluence;
+            // Delay one frame so the clear sky renders first, then transition in.
+            Weather.WeatherProfile startProfile = currentWeather;
+            StartCoroutine(ApplyInitialWeatherDelayed(startProfile));
         }
         else
         {
@@ -174,13 +184,11 @@ public class WeatherManager : MonoBehaviour
             // Apply a sensible clear-sky default so the first frame is not garbage.
             if (_skyboxMaterial != null)
             {
-                _skyboxMaterial.SetFloat("_CloudCoverage",    0f);
-                _skyboxMaterial.SetFloat("_Cloud2Coverage",   0f);
                 _skyboxMaterial.SetFloat("_CloudDensity",     _baseCloudDensity);
                 _skyboxMaterial.SetFloat("_CloudSharpness",   _baseCloudSharpness);
                 _skyboxMaterial.SetFloat("_CloudScale",       _baseCloudScale);
                 _skyboxMaterial.SetFloat("_CloudSpeed",       _baseCloudSpeed);
-                _skyboxMaterial.SetFloat("_CloudEdgeSoftness", 0.2f);
+                _skyboxMaterial.SetFloat("_CloudEdgeSoftness", 0.35f);
                 _skyboxMaterial.SetFloat("_CloudVariation",   0.5f);
                 _skyboxMaterial.SetVector("_CloudDirection",  new Vector4(1f, 0f, 0.5f, 0f));
                 _skyboxMaterial.SetFloat("_CloudBrightness",  1f);
@@ -196,7 +204,6 @@ public class WeatherManager : MonoBehaviour
                 _skyboxMaterial.SetColor("_Cloud2Color",       new Color(0.96f, 0.96f, 0.98f, 1f));
                 _skyboxMaterial.SetColor("_Cloud2ShadowColor", new Color(0.50f, 0.52f, 0.58f, 1f));
                 _skyboxMaterial.SetFloat("_Cloud2Opacity",    0.3f);
-                _skyboxMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
                 _skyboxMaterial.SetFloat("_DayAtmosphereStrength", 1f);
                 _skyboxMaterial.SetFloat("_HorizonGlowStrength",   1f);
                 _skyboxMaterial.SetFloat("_HorizonHazeStrength",   0.15f);
@@ -253,8 +260,9 @@ public class WeatherManager : MonoBehaviour
         if (_weatherVolume != null)
             _weatherVolume.weight = _currentVolumeInfluence;
 
-        // Auto weather cycling
-        if (autoWeather && weatherProfiles != null && weatherProfiles.Length > 1)
+        // Bug 3 fix: auto-weather cycling is skipped when weather is locked by an external
+        // SetWeather() call, so manually chosen conditions are never overridden automatically.
+        if (autoWeather && !_weatherLocked && weatherProfiles != null && weatherProfiles.Length > 1)
         {
             _autoWeatherTimer -= Time.deltaTime;
             if (_autoWeatherTimer <= 0f)
@@ -282,8 +290,26 @@ public class WeatherManager : MonoBehaviour
 
     // ─── PUBLIC API ──────────────────────────────────────────────────
 
-    /// <summary>Transitions to the given weather profile over transitionDuration seconds.</summary>
+    /// <summary>Transitions to the given weather profile over transitionDuration seconds.
+    /// Locks weather so the auto-cycling timer will not override this selection.
+    /// Call UnlockWeather() to re-enable automatic cycling.</summary>
     public void SetWeather(Weather.WeatherProfile profile)
+    {
+        _weatherLocked = true;
+        SetWeatherInternal(profile);
+    }
+
+    /// <summary>Prevents the auto-weather timer from overriding the current weather.
+    /// Call this after SetWeather() if you want to pin the weather indefinitely and
+    /// have not already done so via the public SetWeather() call.</summary>
+    public void LockWeather() => _weatherLocked = true;
+
+    /// <summary>Re-enables automatic weather cycling after a manual SetWeather() call.</summary>
+    public void UnlockWeather() => _weatherLocked = false;
+
+    // Internal transition that does NOT set the weather lock — used by auto-cycling
+    // and the startup coroutine so those paths don't permanently block auto-weather.
+    private void SetWeatherInternal(Weather.WeatherProfile profile)
     {
         if (profile == null) return;
 
@@ -362,7 +388,21 @@ public class WeatherManager : MonoBehaviour
             next = weatherProfiles[Random.Range(0, weatherProfiles.Length)];
             attempts++;
         }
-        SetWeather(next);
+        // Use internal overload so auto-cycling does not lock the weather lock flag.
+        SetWeatherInternal(next);
+    }
+
+    /// <summary>
+    /// Waits one frame (so the forced clear-sky state renders first) then kicks off
+    /// the smooth transition from clear sky to the starting weather profile.
+    /// Using the internal overload ensures the startup transition does not permanently
+    /// lock the weather, allowing auto-cycling to take over once it completes.
+    /// </summary>
+    private System.Collections.IEnumerator ApplyInitialWeatherDelayed(Weather.WeatherProfile profile)
+    {
+        yield return null;
+        // Use internal overload so the startup transition doesn't permanently lock weather.
+        SetWeatherInternal(profile);
     }
 
     private void SetupVolume()

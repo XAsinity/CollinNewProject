@@ -430,28 +430,19 @@ Shader "Custom/DayNightSkybox"
                 // Below-horizon rays get no clouds
                 if (ndir.y < 0.02) return 0.0;
 
-                // ── Issue 4 Fix: Angular wind scrolling on the sphere surface.
-                // Adding a flat 3D vector to a curved surface stretches clouds in the wind
-                // direction and compresses them in the opposite direction.  Instead we scroll
-                // the azimuth angle so the wind moves the noise field uniformly in all directions.
-                float theta = atan2(ndir.z, ndir.x);  // azimuth
-                float phi   = asin(saturate(ndir.y)); // elevation (upper hemisphere only)
+                // Linear 3D wind offset: clouds drift in one direction and naturally disappear
+                // at the horizon as shallow-angle rays reach the shell at more distant points.
+                // Applying the offset directly to the 3D sample position (not rotating azimuth)
+                // means clouds scroll linearly — they travel one way and vanish at the edge.
+                float3 windOffset = float3(cloudDir.x, 0.0, cloudDir.z) * cloudSpeed * time;
 
-                // Wind rotates the azimuth — clouds drift laterally, never vertically.
-                // The 0.1 factor converts the linear speed value to an angular rate (radians/unit-time)
-                // that produces visually similar drift speed to the original linear approach at
-                // mid-latitudes while being uniform in all directions across the sphere.
-                float2 windScroll = float2(cloudDir.x, cloudDir.z) * cloudSpeed * time * 0.1;
-                theta += windScroll.x;
+                // Storm dissolve offset: applied as a 3D bias on the sample position so
+                // departing storm clouds appear to roll toward the horizon in the wind direction.
+                float3 dissolveOffset3D = dissolveOff;
 
-                // Storm dissolve offset — also angular so roll-off is uniform in all directions.
-                // Scaled by 0.1 to match the wind scroll convention (linear offset → angular offset).
-                float2 dissolveAngular = float2(dissolveOff.x, dissolveOff.z) * 0.1;
-                theta += dissolveAngular.x;
-
-                // Reconstruct the scrolled direction on the shell surface.
-                float3 scrolledDir = float3(cos(phi) * cos(theta), sin(phi), cos(phi) * sin(theta));
-                float3 samplePos = scrolledDir * shellRadius * cloudScale * 0.001;
+                // Sphere-shell intersection: the view ray meets the cloud shell at ndir * shellRadius.
+                float3 shellPos = ndir * shellRadius;
+                float3 samplePos = shellPos * cloudScale * 0.001 + windOffset + dissolveOffset3D;
 
                 // Layer separation: offset per-layer so Layer 1 and Layer 2 read from
                 // entirely different regions of the noise field and look distinct.
@@ -462,10 +453,10 @@ Shader "Custom/DayNightSkybox"
                 float horizonCorrection = lerp(1.5, 1.0, smoothstep(0.0, 0.3, abs(ndir.y)));
                 samplePos *= horizonCorrection;
 
-                // ── Issue 1 Fix: Stronger parallax blend (0.35 → 0.45) for more 3D depth.
-                // The inner shell sample at 97 % radius gives a slightly different noise read,
-                // and blending it at 0.45 (instead of 0.35) makes the depth illusion stronger.
-                float3 sampleInner = scrolledDir * (shellRadius * 0.97) * cloudScale * 0.001
+                // Parallax blend for 3D depth: sample the inner shell at 97% radius; blending
+                // the two reads at 0.45 weight creates visible volumetric depth.
+                float3 sampleInner = ndir * (shellRadius * 0.97) * cloudScale * 0.001
+                                   + windOffset + dissolveOffset3D
                                    + float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
                 sampleInner *= horizonCorrection;
                 float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.45);
