@@ -122,6 +122,15 @@ namespace Weather
         [Tooltip("Wind speed multiplier applied to cloud movement")]
         public float windSpeed = 1f;
 
+        // ─── STORM TRANSITION ────────────────────────────────────────
+
+        [Header("Storm Transition")]
+        [Range(0f, 2f)]
+        [Tooltip("How fast the departing storm front rolls away during weather transitions. " +
+                 "0 = clouds uniformly fade in place (gentle transitions like Clear/Slightly Cloudy). " +
+                 "Higher values = more dramatic storm roll-off (e.g. 1.0 for Heavy Storm).")]
+        public float stormRollSpeed = 0f;
+
         // ─── PRECIPITATION ───────────────────────────────────────────
 
         [Header("Precipitation")]
@@ -231,6 +240,7 @@ namespace Weather
             cloud2Color = new Color(0.95f, 0.95f, 0.98f, 1f); cloud2ShadowColor = new Color(0.45f, 0.45f, 0.50f, 1f);
             cloudEdgeSoftness = 0.25f; cloudVariation = 0.4f;
             volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
+            stormRollSpeed = 0f;
         }
 
         [ContextMenu("Preset: Slightly Cloudy")]
@@ -257,6 +267,7 @@ namespace Weather
             cloud2Color = new Color(0.90f, 0.90f, 0.93f, 1f); cloud2ShadowColor = new Color(0.40f, 0.40f, 0.45f, 1f);
             cloudEdgeSoftness = 0.22f; cloudVariation = 0.5f;
             volumeInfluence = 0.1f;
+            stormRollSpeed = 0f;
         }
 
         [ContextMenu("Preset: Partly Cloudy")]
@@ -283,6 +294,7 @@ namespace Weather
             cloud2Color = new Color(0.82f, 0.82f, 0.86f, 1f); cloud2ShadowColor = new Color(0.32f, 0.32f, 0.38f, 1f);
             cloudEdgeSoftness = 0.18f; cloudVariation = 0.65f;
             volumeInfluence = 0.2f;
+            stormRollSpeed = 0.1f;
         }
 
         [ContextMenu("Preset: Mostly Cloudy")]
@@ -309,6 +321,7 @@ namespace Weather
             cloud2Color = new Color(0.70f, 0.70f, 0.76f, 1f); cloud2ShadowColor = new Color(0.24f, 0.24f, 0.30f, 1f);
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.6f;
             volumeInfluence = 0.5f;
+            stormRollSpeed = 0.2f;
         }
 
         [ContextMenu("Preset: Overcast")]
@@ -335,6 +348,7 @@ namespace Weather
             cloud2Color = new Color(0.55f, 0.56f, 0.62f, 1f); cloud2ShadowColor = new Color(0.18f, 0.18f, 0.24f, 1f);
             cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
             volumeInfluence = 0.75f;
+            stormRollSpeed = 0.3f;
         }
 
         [ContextMenu("Preset: Super Cloudy")]
@@ -361,6 +375,7 @@ namespace Weather
             cloud2Color = new Color(0.45f, 0.47f, 0.54f, 1f); cloud2ShadowColor = new Color(0.14f, 0.14f, 0.18f, 1f);
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.35f;
             volumeInfluence = 0.85f;
+            stormRollSpeed = 0.4f;
         }
 
         [ContextMenu("Preset: Light Rain")]
@@ -387,6 +402,7 @@ namespace Weather
             cloud2Color = new Color(0.42f, 0.44f, 0.52f, 1f); cloud2ShadowColor = new Color(0.15f, 0.15f, 0.20f, 1f);
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
             volumeInfluence = 0.85f;
+            stormRollSpeed = 0.5f;
         }
 
         [ContextMenu("Preset: Heavy Storm")]
@@ -413,6 +429,7 @@ namespace Weather
             cloud2Color = new Color(0.30f, 0.32f, 0.40f, 1f); cloud2ShadowColor = new Color(0.10f, 0.10f, 0.14f, 1f);
             cloudEdgeSoftness = 0.08f; cloudVariation = 0.3f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
+            stormRollSpeed = 1.0f;
         }
 
         [ContextMenu("Preset: Fog")]
@@ -440,6 +457,7 @@ namespace Weather
             cloud2Color = new Color(0.65f, 0.68f, 0.72f, 1f); cloud2ShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
             cloudEdgeSoftness = 0.3f; cloudVariation = 0.2f;
             volumeInfluence = 0.90f;
+            stormRollSpeed = 0.1f;
         }
 
         [ContextMenu("Preset: Snow")]
@@ -466,6 +484,7 @@ namespace Weather
             cloud2Color = new Color(0.72f, 0.74f, 0.78f, 1f); cloud2ShadowColor = new Color(0.30f, 0.30f, 0.35f, 1f);
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.5f;
             volumeInfluence = 0.6f;
+            stormRollSpeed = 0.3f;
         }
     }
 }

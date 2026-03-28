@@ -132,6 +132,9 @@ Shader "Custom/DayNightSkybox"
         _CloudLayer2Speed ("Cloud Layer 2 Speed", Range(0, 2)) = 0.5
         _CloudLayer2Opacity ("Cloud Layer 2 Opacity", Range(0, 1)) = 0.3
         _CloudLayer2Height ("Cloud Layer 2 Height Bias", Range(-0.5, 0.8)) = 0.1
+
+        [Header(Storm Transition)]
+        _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
     }
 
     SubShader
@@ -261,6 +264,8 @@ Shader "Custom/DayNightSkybox"
             float _CloudLayer2Speed;
             float _CloudLayer2Opacity;
             float _CloudLayer2Height;
+
+            float4 _CloudDissolveOffset;
 
             // ─── STRUCTS ─────────────────────────────────────────────
 
@@ -547,7 +552,7 @@ Shader "Custom/DayNightSkybox"
                 // Scroll cloud UVs over time using wind direction
                 float3 windOffset = normalize(_CloudDirection.xyz + float3(0.001, 0, 0.001))
                                     * _Time.y * _CloudSpeed;
-                float3 cloudPos = dir * _CloudScale + windOffset;
+                float3 cloudPos = dir * _CloudScale + windOffset + float3(_CloudDissolveOffset.x, 0, _CloudDissolveOffset.y);
 
                 // ── Large-scale grouping mask: very low frequency noise that creates distinct
                 // "cloud zones" with clear sky between them instead of uniform coverage everywhere.
@@ -605,7 +610,9 @@ Shader "Custom/DayNightSkybox"
                         float3 windOffset2 = normalize(_CloudDirection.xyz + float3(0.001, 0, 0.001))
                                              * _Time.y * _CloudLayer2Speed;
                         // Large seed offset ensures layer 2 is a completely different pattern.
-                        float3 cloudPos2 = dir * _CloudLayer2Scale + windOffset2 + float3(31.4, 17.2, 42.8);
+                        // Dissolve offset applied at half-rate — higher clouds drift more slowly relative to the observer.
+                        float3 cloudPos2 = dir * _CloudLayer2Scale + windOffset2 + float3(31.4, 17.2, 42.8)
+                                         + float3(_CloudDissolveOffset.x * 0.5, 0, _CloudDissolveOffset.y * 0.5);
 
                         // Layer 2 uses the same ridged approach but no grouping mask — upper cirrus
                         // can be more evenly spread across the sky.
