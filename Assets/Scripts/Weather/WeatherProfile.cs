@@ -22,11 +22,11 @@ namespace Weather
         [Tooltip("Maximum cloud coverage — a random value between Min and Max is chosen each transition for variety")]
         public float cloudCoverageMax = 0.05f;
 
-        [Tooltip("How dense/opaque individual cloud formations appear")]
-        public float cloudDensity = 1f;
+        [Tooltip("Multiplier on the material's base cloud density (1 = no change, 1.5 = 50% denser)")]
+        public float cloudDensityMultiplier = 1f;
 
-        [Tooltip("Sharpness of cloud edges (higher = harder edges)")]
-        public float cloudSharpness = 1.5f;
+        [Tooltip("Multiplier on the material's base cloud sharpness (1 = no change, 2 = harder edges)")]
+        public float cloudSharpnessMultiplier = 1f;
 
         [Tooltip("Brightness multiplier applied to cloud highlights")]
         public float cloudBrightness = 1f;
@@ -41,11 +41,11 @@ namespace Weather
         [Tooltip("Color used for the shadowed underside of clouds")]
         public Color cloudShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
 
-        [Tooltip("Scale/size of cloud formations (higher = larger clouds)")]
-        public float cloudScale = 5f;
+        [Tooltip("Multiplier on the material's base cloud scale (1 = no change, 1.4 = 40% larger clouds)")]
+        public float cloudScaleMultiplier = 1f;
 
-        [Tooltip("Speed at which clouds drift across the sky")]
-        public float cloudSpeed = 0.3f;
+        [Tooltip("Multiplier on the material's base cloud speed (1 = no change, 2 = twice as fast)")]
+        public float cloudSpeedMultiplier = 1f;
 
         // ─── FOG SETTINGS ────────────────────────────────────────────
 
@@ -130,6 +130,15 @@ namespace Weather
         [Tooltip("Multiplier for procedural star brightness (reduce when cloudy)")]
         public float starVisibilityMultiplier = 1f;
 
+        // ─── VOLUME INFLUENCE ────────────────────────────────────────
+
+        [Header("Volume Influence")]
+        [Range(0f, 1f)]
+        [Tooltip("How strongly this weather overrides the time-of-day URP Volume.\n" +
+                 "0 = clear sky lets the DayNightVolumeController fully control post-processing.\n" +
+                 "1 = storm completely overrides with this profile's bloom/vignette/color values.")]
+        public float volumeInfluence = 0f;
+
         // ─── CONTEXT MENU PRESETS ────────────────────────────────────
 
         [ContextMenu("Preset: Clear")]
@@ -137,10 +146,10 @@ namespace Weather
         {
             profileName = "Clear";
             cloudCoverageMin = 0.0f; cloudCoverageMax = 0.05f;
-            cloudDensity = 1f; cloudSharpness = 1.5f; cloudBrightness = 1f; cloudDarkness = 0.3f;
+            cloudDensityMultiplier = 1f; cloudSharpnessMultiplier = 1f; cloudBrightness = 1f; cloudDarkness = 0.3f;
             cloudColor = new Color(0.95f, 0.95f, 0.95f, 1f);
             cloudShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
-            cloudScale = 5f; cloudSpeed = 0.3f;
+            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 1f;
             fogDensityMultiplier = 0.3f; fogColorTint = Color.white; overrideFogColor = false;
             sunIntensityMultiplier = 1.0f; moonIntensityMultiplier = 1.0f;
             ambientIntensityMultiplier = 1.0f; ambientColorTint = Color.white;
@@ -149,6 +158,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.5f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 1f; starVisibilityMultiplier = 1f;
+            volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
         }
 
         [ContextMenu("Preset: Slightly Cloudy")]
@@ -156,10 +166,10 @@ namespace Weather
         {
             profileName = "Slightly Cloudy";
             cloudCoverageMin = 0.1f; cloudCoverageMax = 0.25f;
-            cloudDensity = 1f; cloudSharpness = 1.5f; cloudBrightness = 1f; cloudDarkness = 0.35f;
+            cloudDensityMultiplier = 1f; cloudSharpnessMultiplier = 1f; cloudBrightness = 1f; cloudDarkness = 0.35f;
             cloudColor = new Color(0.95f, 0.95f, 0.95f, 1f);
             cloudShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
-            cloudScale = 5f; cloudSpeed = 0.3f;
+            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 1f;
             fogDensityMultiplier = 0.5f; fogColorTint = Color.white; overrideFogColor = false;
             sunIntensityMultiplier = 0.95f; moonIntensityMultiplier = 1.0f;
             ambientIntensityMultiplier = 0.95f; ambientColorTint = Color.white;
@@ -168,6 +178,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.8f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 0.9f; starVisibilityMultiplier = 0.9f;
+            volumeInfluence = 0.1f;
         }
 
         [ContextMenu("Preset: Partly Cloudy")]
@@ -175,10 +186,10 @@ namespace Weather
         {
             profileName = "Partly Cloudy";
             cloudCoverageMin = 0.3f; cloudCoverageMax = 0.5f;
-            cloudDensity = 1.1f; cloudSharpness = 1.5f; cloudBrightness = 1f; cloudDarkness = 0.4f;
+            cloudDensityMultiplier = 1.1f; cloudSharpnessMultiplier = 1f; cloudBrightness = 1f; cloudDarkness = 0.4f;
             cloudColor = new Color(0.93f, 0.93f, 0.93f, 1f);
             cloudShadowColor = new Color(0.32f, 0.32f, 0.38f, 1f);
-            cloudScale = 5f; cloudSpeed = 0.3f;
+            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 1f;
             fogDensityMultiplier = 0.7f; fogColorTint = Color.white; overrideFogColor = false;
             sunIntensityMultiplier = 0.85f; moonIntensityMultiplier = 0.9f;
             ambientIntensityMultiplier = 0.9f; ambientColorTint = Color.white;
@@ -187,6 +198,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.9f; horizonGlowMultiplier = 0.8f; starVisibilityMultiplier = 0.6f;
+            volumeInfluence = 0.2f;
         }
 
         [ContextMenu("Preset: Mostly Cloudy")]
@@ -194,10 +206,10 @@ namespace Weather
         {
             profileName = "Mostly Cloudy";
             cloudCoverageMin = 0.55f; cloudCoverageMax = 0.75f;
-            cloudDensity = 1.2f; cloudSharpness = 1.8f; cloudBrightness = 0.9f; cloudDarkness = 0.5f;
+            cloudDensityMultiplier = 1.2f; cloudSharpnessMultiplier = 1.1f; cloudBrightness = 0.9f; cloudDarkness = 0.5f;
             cloudColor = new Color(0.85f, 0.85f, 0.88f, 1f);
             cloudShadowColor = new Color(0.28f, 0.28f, 0.34f, 1f);
-            cloudScale = 5f; cloudSpeed = 0.35f;
+            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 1.1f;
             fogDensityMultiplier = 1.0f; fogColorTint = Color.white; overrideFogColor = false;
             sunIntensityMultiplier = 0.6f; moonIntensityMultiplier = 0.7f;
             ambientIntensityMultiplier = 0.75f; ambientColorTint = new Color(0.9f, 0.9f, 0.95f, 1f);
@@ -206,6 +218,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.2f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.7f; horizonGlowMultiplier = 0.5f; starVisibilityMultiplier = 0.2f;
+            volumeInfluence = 0.5f;
         }
 
         [ContextMenu("Preset: Overcast")]
@@ -213,10 +226,10 @@ namespace Weather
         {
             profileName = "Overcast";
             cloudCoverageMin = 0.85f; cloudCoverageMax = 0.95f;
-            cloudDensity = 1.4f; cloudSharpness = 2f; cloudBrightness = 0.75f; cloudDarkness = 0.6f;
+            cloudDensityMultiplier = 1.4f; cloudSharpnessMultiplier = 1.3f; cloudBrightness = 0.75f; cloudDarkness = 0.6f;
             cloudColor = new Color(0.75f, 0.76f, 0.80f, 1f);
             cloudShadowColor = new Color(0.22f, 0.22f, 0.28f, 1f);
-            cloudScale = 6f; cloudSpeed = 0.4f;
+            cloudScaleMultiplier = 1.2f; cloudSpeedMultiplier = 1.3f;
             fogDensityMultiplier = 1.5f; fogColorTint = new Color(0.7f, 0.72f, 0.78f, 1f); overrideFogColor = false;
             sunIntensityMultiplier = 0.35f; moonIntensityMultiplier = 0.4f;
             ambientIntensityMultiplier = 0.55f; ambientColorTint = new Color(0.82f, 0.84f, 0.90f, 1f);
@@ -225,6 +238,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.4f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.4f; horizonGlowMultiplier = 0.2f; starVisibilityMultiplier = 0.05f;
+            volumeInfluence = 0.7f;
         }
 
         [ContextMenu("Preset: Super Cloudy")]
@@ -232,10 +246,10 @@ namespace Weather
         {
             profileName = "Super Cloudy";
             cloudCoverageMin = 0.93f; cloudCoverageMax = 0.99f;
-            cloudDensity = 1.6f; cloudSharpness = 2.5f; cloudBrightness = 0.65f; cloudDarkness = 0.7f;
+            cloudDensityMultiplier = 1.6f; cloudSharpnessMultiplier = 1.5f; cloudBrightness = 0.65f; cloudDarkness = 0.7f;
             cloudColor = new Color(0.65f, 0.67f, 0.72f, 1f);
             cloudShadowColor = new Color(0.18f, 0.18f, 0.22f, 1f);
-            cloudScale = 6f; cloudSpeed = 0.4f;
+            cloudScaleMultiplier = 1.2f; cloudSpeedMultiplier = 1.3f;
             fogDensityMultiplier = 2.0f; fogColorTint = new Color(0.62f, 0.64f, 0.70f, 1f); overrideFogColor = false;
             sunIntensityMultiplier = 0.2f; moonIntensityMultiplier = 0.25f;
             ambientIntensityMultiplier = 0.4f; ambientColorTint = new Color(0.72f, 0.74f, 0.82f, 1f);
@@ -244,6 +258,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.6f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.25f; horizonGlowMultiplier = 0.1f; starVisibilityMultiplier = 0.0f;
+            volumeInfluence = 0.8f;
         }
 
         [ContextMenu("Preset: Light Rain")]
@@ -251,10 +266,10 @@ namespace Weather
         {
             profileName = "Light Rain";
             cloudCoverageMin = 0.7f; cloudCoverageMax = 0.85f;
-            cloudDensity = 1.3f; cloudSharpness = 2f; cloudBrightness = 0.7f; cloudDarkness = 0.6f;
+            cloudDensityMultiplier = 1.3f; cloudSharpnessMultiplier = 1.2f; cloudBrightness = 0.7f; cloudDarkness = 0.6f;
             cloudColor = new Color(0.58f, 0.61f, 0.68f, 1f);
             cloudShadowColor = new Color(0.20f, 0.21f, 0.26f, 1f);
-            cloudScale = 5.5f; cloudSpeed = 0.5f;
+            cloudScaleMultiplier = 1.1f; cloudSpeedMultiplier = 1.5f;
             fogDensityMultiplier = 1.8f; fogColorTint = new Color(0.55f, 0.60f, 0.68f, 1f); overrideFogColor = true;
             sunIntensityMultiplier = 0.4f; moonIntensityMultiplier = 0.35f;
             ambientIntensityMultiplier = 0.5f; ambientColorTint = new Color(0.68f, 0.72f, 0.82f, 1f);
@@ -263,6 +278,7 @@ namespace Weather
             windDirection = new Vector3(1f, 0f, 0.3f); windSpeed = 1.5f;
             precipitationType = PrecipitationType.Rain; precipitationIntensity = 0.4f;
             dayAtmosphereMultiplier = 0.5f; horizonGlowMultiplier = 0.15f; starVisibilityMultiplier = 0.0f;
+            volumeInfluence = 0.75f;
         }
 
         [ContextMenu("Preset: Heavy Storm")]
@@ -270,10 +286,10 @@ namespace Weather
         {
             profileName = "Heavy Storm";
             cloudCoverageMin = 0.9f; cloudCoverageMax = 0.98f;
-            cloudDensity = 1.8f; cloudSharpness = 3f; cloudBrightness = 0.5f; cloudDarkness = 0.8f;
+            cloudDensityMultiplier = 1.8f; cloudSharpnessMultiplier = 1.8f; cloudBrightness = 0.5f; cloudDarkness = 0.8f;
             cloudColor = new Color(0.40f, 0.42f, 0.48f, 1f);
             cloudShadowColor = new Color(0.12f, 0.12f, 0.16f, 1f);
-            cloudScale = 7f; cloudSpeed = 0.8f;
+            cloudScaleMultiplier = 1.4f; cloudSpeedMultiplier = 2.5f;
             fogDensityMultiplier = 2.5f; fogColorTint = new Color(0.35f, 0.38f, 0.45f, 1f); overrideFogColor = true;
             sunIntensityMultiplier = 0.15f; moonIntensityMultiplier = 0.1f;
             ambientIntensityMultiplier = 0.3f; ambientColorTint = new Color(0.55f, 0.58f, 0.68f, 1f);
@@ -282,6 +298,7 @@ namespace Weather
             windDirection = new Vector3(1f, 0f, 0.5f); windSpeed = 2.5f;
             precipitationType = PrecipitationType.Rain; precipitationIntensity = 1.0f;
             dayAtmosphereMultiplier = 0.15f; horizonGlowMultiplier = 0.05f; starVisibilityMultiplier = 0.0f;
+            volumeInfluence = 1.0f; // fully override TOD volume during a storm
         }
 
         [ContextMenu("Preset: Fog")]
@@ -289,10 +306,10 @@ namespace Weather
         {
             profileName = "Fog";
             cloudCoverageMin = 0.3f; cloudCoverageMax = 0.5f;
-            cloudDensity = 0.8f; cloudSharpness = 1f; cloudBrightness = 0.9f; cloudDarkness = 0.3f;
+            cloudDensityMultiplier = 0.8f; cloudSharpnessMultiplier = 0.7f; cloudBrightness = 0.9f; cloudDarkness = 0.3f;
             cloudColor = new Color(0.88f, 0.90f, 0.92f, 1f);
             cloudShadowColor = new Color(0.70f, 0.72f, 0.76f, 1f);
-            cloudScale = 4f; cloudSpeed = 0.15f;
+            cloudScaleMultiplier = 0.8f; cloudSpeedMultiplier = 0.5f;
             fogDensityMultiplier = 4.0f; fogColorTint = new Color(0.75f, 0.78f, 0.82f, 1f); overrideFogColor = true;
             sunIntensityMultiplier = 0.5f; moonIntensityMultiplier = 0.5f;
             ambientIntensityMultiplier = 0.7f; ambientColorTint = new Color(0.85f, 0.88f, 0.92f, 1f);
@@ -301,6 +318,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.2f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.3f; starVisibilityMultiplier = 0.0f;
+            volumeInfluence = 0.8f;
         }
 
         [ContextMenu("Preset: Snow")]
@@ -308,10 +326,10 @@ namespace Weather
         {
             profileName = "Snow";
             cloudCoverageMin = 0.6f; cloudCoverageMax = 0.8f;
-            cloudDensity = 1.2f; cloudSharpness = 1.8f; cloudBrightness = 1.1f; cloudDarkness = 0.3f;
+            cloudDensityMultiplier = 1.2f; cloudSharpnessMultiplier = 1.1f; cloudBrightness = 1.1f; cloudDarkness = 0.3f;
             cloudColor = new Color(0.92f, 0.94f, 0.98f, 1f);
             cloudShadowColor = new Color(0.60f, 0.62f, 0.70f, 1f);
-            cloudScale = 5f; cloudSpeed = 0.25f;
+            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 0.8f;
             fogDensityMultiplier = 1.5f; fogColorTint = new Color(0.85f, 0.88f, 0.95f, 1f); overrideFogColor = false;
             sunIntensityMultiplier = 0.5f; moonIntensityMultiplier = 0.6f;
             ambientIntensityMultiplier = 0.7f; ambientColorTint = new Color(0.90f, 0.92f, 0.98f, 1f);
@@ -320,6 +338,7 @@ namespace Weather
             windDirection = new Vector3(0.8f, 0f, 0.2f); windSpeed = 0.8f;
             precipitationType = PrecipitationType.Snow; precipitationIntensity = 0.7f;
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.4f; starVisibilityMultiplier = 0.1f;
+            volumeInfluence = 0.6f;
         }
     }
 }
