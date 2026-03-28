@@ -74,6 +74,10 @@ public class WeatherManager : MonoBehaviour
     private float _baseCloud2Density   = 0.8f;
     private float _baseCloud2Sharpness = 2f;
 
+    // Base horizon haze strength cached from the material at Start so
+    // weather profiles can multiply it rather than override it absolutely.
+    private float _baseHorizonHazeStrength = 0.3f;
+
     // Current lerped volume influence (controls _weatherVolume.weight)
     private float _currentVolumeInfluence = 0f;
 
@@ -106,6 +110,9 @@ public class WeatherManager : MonoBehaviour
             _baseCloudDensity   = _skyboxMaterial.GetFloat("_CloudDensity");
             _baseCloudSharpness = _skyboxMaterial.GetFloat("_CloudSharpness");
 
+            if (_skyboxMaterial.HasProperty("_HorizonHazeStrength"))
+                _baseHorizonHazeStrength = _skyboxMaterial.GetFloat("_HorizonHazeStrength");
+
             if (_skyboxMaterial.HasProperty("_Cloud2Scale"))
                 _baseCloud2Scale = _skyboxMaterial.GetFloat("_Cloud2Scale");
             if (_skyboxMaterial.HasProperty("_Cloud2Speed"))
@@ -128,10 +135,25 @@ public class WeatherManager : MonoBehaviour
             _toCoverage2 = _fromCoverage2;
             _transitionProgress = 1f;
             ApplyWeatherLerp(currentWeather, currentWeather, 1f);
+            // Immediately sync the volume weight so there is no one-frame gap at boot.
+            if (_weatherVolume != null)
+                _weatherVolume.weight = _currentVolumeInfluence;
         }
         else
         {
-            Debug.LogWarning("[WeatherManager] No starting weather profile assigned — using material/scene defaults.");
+            Debug.LogWarning("[WeatherManager] No starting weather profile assigned — applying clear-sky defaults.");
+            // Apply a sensible clear-sky default so the first frame is not garbage.
+            if (_skyboxMaterial != null)
+            {
+                _skyboxMaterial.SetFloat("_CloudCoverage", 0f);
+                _skyboxMaterial.SetFloat("_Cloud2Coverage", 0f);
+                _skyboxMaterial.SetFloat("_CloudBrightness", 1f);
+                _skyboxMaterial.SetFloat("_CloudDarkness", 0.3f);
+                _skyboxMaterial.SetFloat("_DayAtmosphereStrength", 1f);
+                _skyboxMaterial.SetFloat("_HorizonGlowStrength", 1f);
+                _skyboxMaterial.SetFloat("_HorizonHazeStrength", _baseHorizonHazeStrength);
+                _skyboxMaterial.SetFloat("_StarBrightness", 1.2f); // base star brightness (same default used in ApplyWeatherLerp)
+            }
         }
 
         _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
@@ -319,8 +341,10 @@ public class WeatherManager : MonoBehaviour
                 1.2f * Mathf.Lerp(from.starVisibilityMultiplier, to.starVisibilityMultiplier, t));
 
             // Horizon Haze (WeatherManager is the SOLE controller — DayNightCycle does NOT touch these)
+            // _HorizonHazeStrength uses a multiplier on the designer's base material value so the
+            // material setting is the source of truth and weather profiles only scale it.
             _skyboxMaterial.SetFloat("_HorizonHazeStrength",
-                Mathf.Lerp(from.horizonHazeStrength, to.horizonHazeStrength, t));
+                _baseHorizonHazeStrength * Mathf.Lerp(from.horizonHazeMultiplier, to.horizonHazeMultiplier, t));
             _skyboxMaterial.SetFloat("_HorizonHazeHeight",
                 Mathf.Lerp(from.horizonHazeHeight, to.horizonHazeHeight, t));
             _skyboxMaterial.SetFloat("_HorizonHazeFalloff",

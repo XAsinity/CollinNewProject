@@ -157,6 +157,9 @@ namespace Weather
         [Tooltip("Sharpness of the haze fade edge (low value = soft gradient, high = hard band)")]
         public float horizonHazeFalloff = 3f;
 
+        [Tooltip("Multiplier on the material's base _HorizonHazeStrength (1 = preserve designer value, 0.3 = heavy storm reduction)")]
+        public float horizonHazeMultiplier = 1f;
+
         // ─── CLOUD LAYER 2 SETTINGS ──────────────────────────────────
 
         [Header("Cloud Layer 2 Settings")]
@@ -221,11 +224,11 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.5f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 1f; starVisibilityMultiplier = 1f;
-            horizonHazeStrength = 0.15f; horizonHazeHeight = 0.1f; horizonHazeFalloff = 4f;
+            horizonHazeStrength = 0.15f; horizonHazeHeight = 0.1f; horizonHazeFalloff = 4f; horizonHazeMultiplier = 1.0f;
             cloud2CoverageMin = 0.0f; cloud2CoverageMax = 0.05f;
             cloud2DensityMultiplier = 0.6f; cloud2SharpnessMultiplier = 0.7f; cloud2ScaleMultiplier = 1.2f; cloud2SpeedMultiplier = 1.1f;
-            cloud2Brightness = 1.1f; cloud2Darkness = 0.15f;
-            cloud2Color = new Color(0.97f, 0.97f, 0.98f, 1f); cloud2ShadowColor = new Color(0.55f, 0.58f, 0.65f, 1f);
+            cloud2Brightness = 1.0f; cloud2Darkness = 0.30f;
+            cloud2Color = new Color(0.95f, 0.95f, 0.98f, 1f); cloud2ShadowColor = new Color(0.45f, 0.45f, 0.50f, 1f);
             cloudEdgeSoftness = 0.25f; cloudVariation = 0.4f;
             volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
         }
@@ -247,11 +250,11 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.8f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 0.9f; starVisibilityMultiplier = 0.9f;
-            horizonHazeStrength = 0.2f; horizonHazeHeight = 0.12f; horizonHazeFalloff = 3.5f;
+            horizonHazeStrength = 0.2f; horizonHazeHeight = 0.12f; horizonHazeFalloff = 3.5f; horizonHazeMultiplier = 0.9f;
             cloud2CoverageMin = 0.05f; cloud2CoverageMax = 0.15f;
             cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.8f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 1.0f;
-            cloud2Brightness = 1.05f; cloud2Darkness = 0.2f;
-            cloud2Color = new Color(0.96f, 0.96f, 0.97f, 1f); cloud2ShadowColor = new Color(0.52f, 0.54f, 0.60f, 1f);
+            cloud2Brightness = 1.0f; cloud2Darkness = 0.35f;
+            cloud2Color = new Color(0.90f, 0.90f, 0.93f, 1f); cloud2ShadowColor = new Color(0.40f, 0.40f, 0.45f, 1f);
             cloudEdgeSoftness = 0.22f; cloudVariation = 0.5f;
             volumeInfluence = 0.1f;
         }
@@ -273,11 +276,11 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.9f; horizonGlowMultiplier = 0.8f; starVisibilityMultiplier = 0.6f;
-            horizonHazeStrength = 0.3f; horizonHazeHeight = 0.15f; horizonHazeFalloff = 3f;
+            horizonHazeStrength = 0.3f; horizonHazeHeight = 0.15f; horizonHazeFalloff = 3f; horizonHazeMultiplier = 0.8f;
             cloud2CoverageMin = 0.1f; cloud2CoverageMax = 0.3f;
             cloud2DensityMultiplier = 0.8f; cloud2SharpnessMultiplier = 0.9f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 1.0f;
-            cloud2Brightness = 1.0f; cloud2Darkness = 0.25f;
-            cloud2Color = new Color(0.94f, 0.94f, 0.96f, 1f); cloud2ShadowColor = new Color(0.48f, 0.50f, 0.58f, 1f);
+            cloud2Brightness = 0.9f; cloud2Darkness = 0.40f;
+            cloud2Color = new Color(0.82f, 0.82f, 0.86f, 1f); cloud2ShadowColor = new Color(0.32f, 0.32f, 0.38f, 1f);
             cloudEdgeSoftness = 0.18f; cloudVariation = 0.65f;
             volumeInfluence = 0.2f;
         }
@@ -299,11 +302,11 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.2f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.7f; horizonGlowMultiplier = 0.5f; starVisibilityMultiplier = 0.2f;
-            horizonHazeStrength = 0.45f; horizonHazeHeight = 0.18f; horizonHazeFalloff = 2.5f;
+            horizonHazeStrength = 0.45f; horizonHazeHeight = 0.18f; horizonHazeFalloff = 2.5f; horizonHazeMultiplier = 0.7f;
             cloud2CoverageMin = 0.25f; cloud2CoverageMax = 0.45f;
             cloud2DensityMultiplier = 0.9f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 0.95f; cloud2SpeedMultiplier = 1.0f;
-            cloud2Brightness = 0.9f; cloud2Darkness = 0.30f;
-            cloud2Color = new Color(0.88f, 0.88f, 0.92f, 1f); cloud2ShadowColor = new Color(0.40f, 0.42f, 0.50f, 1f);
+            cloud2Brightness = 0.8f; cloud2Darkness = 0.55f;
+            cloud2Color = new Color(0.70f, 0.70f, 0.76f, 1f); cloud2ShadowColor = new Color(0.24f, 0.24f, 0.30f, 1f);
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.6f;
             volumeInfluence = 0.5f;
         }
@@ -325,11 +328,11 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.4f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.4f; horizonGlowMultiplier = 0.2f; starVisibilityMultiplier = 0.05f;
-            horizonHazeStrength = 0.6f; horizonHazeHeight = 0.22f; horizonHazeFalloff = 2f;
+            horizonHazeStrength = 0.6f; horizonHazeHeight = 0.22f; horizonHazeFalloff = 2f; horizonHazeMultiplier = 0.5f;
             cloud2CoverageMin = 0.4f; cloud2CoverageMax = 0.7f;
             cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.0f;
-            cloud2Brightness = 0.8f; cloud2Darkness = 0.40f;
-            cloud2Color = new Color(0.78f, 0.80f, 0.85f, 1f); cloud2ShadowColor = new Color(0.32f, 0.34f, 0.42f, 1f);
+            cloud2Brightness = 0.65f; cloud2Darkness = 0.65f;
+            cloud2Color = new Color(0.55f, 0.56f, 0.62f, 1f); cloud2ShadowColor = new Color(0.18f, 0.18f, 0.24f, 1f);
             cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
             volumeInfluence = 0.75f;
         }
@@ -351,11 +354,11 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.6f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.25f; horizonGlowMultiplier = 0.1f; starVisibilityMultiplier = 0.0f;
-            horizonHazeStrength = 0.7f; horizonHazeHeight = 0.25f; horizonHazeFalloff = 1.8f;
+            horizonHazeStrength = 0.7f; horizonHazeHeight = 0.25f; horizonHazeFalloff = 1.8f; horizonHazeMultiplier = 0.4f;
             cloud2CoverageMin = 0.5f; cloud2CoverageMax = 0.75f;
             cloud2DensityMultiplier = 1.2f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.85f; cloud2SpeedMultiplier = 1.0f;
-            cloud2Brightness = 0.7f; cloud2Darkness = 0.50f;
-            cloud2Color = new Color(0.70f, 0.72f, 0.78f, 1f); cloud2ShadowColor = new Color(0.26f, 0.28f, 0.36f, 1f);
+            cloud2Brightness = 0.5f; cloud2Darkness = 0.75f;
+            cloud2Color = new Color(0.45f, 0.47f, 0.54f, 1f); cloud2ShadowColor = new Color(0.14f, 0.14f, 0.18f, 1f);
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.35f;
             volumeInfluence = 0.85f;
         }
@@ -377,11 +380,11 @@ namespace Weather
             windDirection = new Vector3(1f, 0f, 0.3f); windSpeed = 1.5f;
             precipitationType = PrecipitationType.Rain; precipitationIntensity = 0.4f;
             dayAtmosphereMultiplier = 0.5f; horizonGlowMultiplier = 0.15f; starVisibilityMultiplier = 0.0f;
-            horizonHazeStrength = 0.55f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.2f;
+            horizonHazeStrength = 0.55f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.2f; horizonHazeMultiplier = 0.4f;
             cloud2CoverageMin = 0.3f; cloud2CoverageMax = 0.6f;
             cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.2f;
-            cloud2Brightness = 0.75f; cloud2Darkness = 0.45f;
-            cloud2Color = new Color(0.65f, 0.68f, 0.75f, 1f); cloud2ShadowColor = new Color(0.28f, 0.30f, 0.38f, 1f);
+            cloud2Brightness = 0.55f; cloud2Darkness = 0.70f;
+            cloud2Color = new Color(0.42f, 0.44f, 0.52f, 1f); cloud2ShadowColor = new Color(0.15f, 0.15f, 0.20f, 1f);
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
             volumeInfluence = 0.85f;
         }
@@ -403,11 +406,11 @@ namespace Weather
             windDirection = new Vector3(1f, 0f, 0.5f); windSpeed = 2.5f;
             precipitationType = PrecipitationType.Rain; precipitationIntensity = 1.0f;
             dayAtmosphereMultiplier = 0.15f; horizonGlowMultiplier = 0.05f; starVisibilityMultiplier = 0.0f;
-            horizonHazeStrength = 0.8f; horizonHazeHeight = 0.3f; horizonHazeFalloff = 1.5f;
+            horizonHazeStrength = 0.8f; horizonHazeHeight = 0.3f; horizonHazeFalloff = 1.5f; horizonHazeMultiplier = 0.3f;
             cloud2CoverageMin = 0.5f; cloud2CoverageMax = 0.85f;
             cloud2DensityMultiplier = 1.3f; cloud2SharpnessMultiplier = 1.2f; cloud2ScaleMultiplier = 0.85f; cloud2SpeedMultiplier = 1.5f;
-            cloud2Brightness = 0.55f; cloud2Darkness = 0.65f;
-            cloud2Color = new Color(0.45f, 0.48f, 0.55f, 1f); cloud2ShadowColor = new Color(0.18f, 0.18f, 0.24f, 1f);
+            cloud2Brightness = 0.4f; cloud2Darkness = 0.80f;
+            cloud2Color = new Color(0.30f, 0.32f, 0.40f, 1f); cloud2ShadowColor = new Color(0.10f, 0.10f, 0.14f, 1f);
             cloudEdgeSoftness = 0.08f; cloudVariation = 0.3f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
         }
@@ -430,11 +433,11 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.2f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.3f; starVisibilityMultiplier = 0.0f;
-            horizonHazeStrength = 0.9f; horizonHazeHeight = 0.35f; horizonHazeFalloff = 1f;
+            horizonHazeStrength = 0.9f; horizonHazeHeight = 0.35f; horizonHazeFalloff = 1f; horizonHazeMultiplier = 1.2f;
             cloud2CoverageMin = 0.1f; cloud2CoverageMax = 0.4f;
             cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.6f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 0.5f;
-            cloud2Brightness = 0.9f; cloud2Darkness = 0.25f;
-            cloud2Color = new Color(0.85f, 0.87f, 0.90f, 1f); cloud2ShadowColor = new Color(0.65f, 0.67f, 0.72f, 1f);
+            cloud2Brightness = 0.85f; cloud2Darkness = 0.35f;
+            cloud2Color = new Color(0.65f, 0.68f, 0.72f, 1f); cloud2ShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
             cloudEdgeSoftness = 0.3f; cloudVariation = 0.2f;
             volumeInfluence = 0.90f;
         }
@@ -456,11 +459,11 @@ namespace Weather
             windDirection = new Vector3(0.8f, 0f, 0.2f); windSpeed = 0.8f;
             precipitationType = PrecipitationType.Snow; precipitationIntensity = 0.7f;
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.4f; starVisibilityMultiplier = 0.1f;
-            horizonHazeStrength = 0.5f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.5f;
+            horizonHazeStrength = 0.5f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.5f; horizonHazeMultiplier = 0.7f;
             cloud2CoverageMin = 0.3f; cloud2CoverageMax = 0.65f;
             cloud2DensityMultiplier = 1.0f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 0.8f;
-            cloud2Brightness = 1.1f; cloud2Darkness = 0.2f;
-            cloud2Color = new Color(0.94f, 0.96f, 1.0f, 1f); cloud2ShadowColor = new Color(0.58f, 0.62f, 0.72f, 1f);
+            cloud2Brightness = 0.95f; cloud2Darkness = 0.25f;
+            cloud2Color = new Color(0.72f, 0.74f, 0.78f, 1f); cloud2ShadowColor = new Color(0.30f, 0.30f, 0.35f, 1f);
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.5f;
             volumeInfluence = 0.6f;
         }
