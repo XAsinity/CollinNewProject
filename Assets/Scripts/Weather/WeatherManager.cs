@@ -307,6 +307,14 @@ public class WeatherManager : MonoBehaviour
             bool overrideFog = (t >= 0.5f) ? to.overrideFogColor : from.overrideFogColor;
             Color fogTint = Color.Lerp(from.fogColorTint, to.fogColorTint, t);
             dayNightCycle.SetFogColorOverride(fogTint, overrideFog);
+
+            // Fog mode override — switch to target profile's fog mode at the midpoint
+            bool useFogMode = (t >= 0.5f) ? to.overrideFogMode : from.overrideFogMode;
+            if (useFogMode)
+            {
+                FogMode mode = (t >= 0.5f) ? to.fogMode : from.fogMode;
+                RenderSettings.fogMode = mode;
+            }
         }
 
         // ── Volume influence: lerped value is applied as _weatherVolume.weight in Update()
