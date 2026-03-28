@@ -1,0 +1,325 @@
+using UnityEngine;
+
+namespace Weather
+{
+    public enum PrecipitationType { None, Rain, Snow, Hail }
+
+    [CreateAssetMenu(fileName = "WeatherProfile", menuName = "Weather/Weather Profile", order = 1)]
+    public class WeatherProfile : ScriptableObject
+    {
+        [Header("Profile")]
+        [Tooltip("Display name for this weather condition")]
+        public string profileName = "Clear";
+
+        // ─── CLOUD SETTINGS ──────────────────────────────────────────
+
+        [Header("Cloud Settings")]
+        [Range(0f, 1f)]
+        [Tooltip("Minimum cloud coverage — a random value between Min and Max is chosen each transition for variety")]
+        public float cloudCoverageMin = 0f;
+
+        [Range(0f, 1f)]
+        [Tooltip("Maximum cloud coverage — a random value between Min and Max is chosen each transition for variety")]
+        public float cloudCoverageMax = 0.05f;
+
+        [Tooltip("How dense/opaque individual cloud formations appear")]
+        public float cloudDensity = 1f;
+
+        [Tooltip("Sharpness of cloud edges (higher = harder edges)")]
+        public float cloudSharpness = 1.5f;
+
+        [Tooltip("Brightness multiplier applied to cloud highlights")]
+        public float cloudBrightness = 1f;
+
+        [Range(0f, 1f)]
+        [Tooltip("Darkening strength for cloud shadows and undersides")]
+        public float cloudDarkness = 0.5f;
+
+        [Tooltip("Base color tint applied on top of time-of-day cloud color")]
+        public Color cloudColor = new Color(0.95f, 0.95f, 0.95f, 1f);
+
+        [Tooltip("Color used for the shadowed underside of clouds")]
+        public Color cloudShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
+
+        [Tooltip("Scale/size of cloud formations (higher = larger clouds)")]
+        public float cloudScale = 5f;
+
+        [Tooltip("Speed at which clouds drift across the sky")]
+        public float cloudSpeed = 0.3f;
+
+        // ─── FOG SETTINGS ────────────────────────────────────────────
+
+        [Header("Fog Settings")]
+        [Tooltip("Multiplied against DayNightCycle's base fog density curve")]
+        public float fogDensityMultiplier = 1f;
+
+        [Tooltip("Color tint blended with or replacing the base fog color")]
+        public Color fogColorTint = Color.white;
+
+        [Tooltip("If enabled, fogColorTint completely replaces the time-of-day fog color")]
+        public bool overrideFogColor = false;
+
+        // ─── LIGHT SETTINGS ──────────────────────────────────────────
+
+        [Header("Light Settings")]
+        [Tooltip("Multiplied against the sun light intensity curve (1 = normal, 0 = no sun)")]
+        public float sunIntensityMultiplier = 1f;
+
+        [Tooltip("Multiplied against the moon light intensity curve (1 = normal)")]
+        public float moonIntensityMultiplier = 1f;
+
+        [Tooltip("Multiplied against ambient light intensity (1 = normal, <1 = darker)")]
+        public float ambientIntensityMultiplier = 1f;
+
+        [Tooltip("Color tint multiplied with ambient light color")]
+        public Color ambientColorTint = Color.white;
+
+        // ─── URP VOLUME OVERRIDES ────────────────────────────────────
+
+        [Header("URP Volume Overrides")]
+        [Tooltip("Bloom post-process intensity for this weather condition")]
+        public float bloomIntensity = 0.5f;
+
+        [Tooltip("Luminance threshold above which bloom is applied")]
+        public float bloomThreshold = 1f;
+
+        [Range(0f, 1f)]
+        [Tooltip("Vignette intensity (darkens screen edges)")]
+        public float vignetteIntensity = 0.2f;
+
+        [Tooltip("Post exposure adjustment in EV units (0 = no change)")]
+        public float colorAdjustmentExposure = 0f;
+
+        [Range(-100f, 100f)]
+        [Tooltip("Color contrast adjustment (-100 to +100)")]
+        public float colorAdjustmentContrast = 0f;
+
+        [Range(-100f, 100f)]
+        [Tooltip("Color saturation adjustment (-100 = grayscale, +100 = vivid)")]
+        public float colorAdjustmentSaturation = 0f;
+
+        // ─── WIND ────────────────────────────────────────────────────
+
+        [Header("Wind")]
+        [Tooltip("Normalized wind direction vector (used for cloud drift)")]
+        public Vector3 windDirection = Vector3.right;
+
+        [Tooltip("Wind speed multiplier applied to cloud movement")]
+        public float windSpeed = 1f;
+
+        // ─── PRECIPITATION ───────────────────────────────────────────
+
+        [Header("Precipitation")]
+        [Tooltip("Type of precipitation (metadata — hooks into future particle systems)")]
+        public PrecipitationType precipitationType = PrecipitationType.None;
+
+        [Range(0f, 1f)]
+        [Tooltip("Intensity of precipitation (0 = none, 1 = maximum)")]
+        public float precipitationIntensity = 0f;
+
+        // ─── SKYBOX ATMOSPHERE OVERRIDES ─────────────────────────────
+
+        [Header("Skybox Atmosphere Overrides")]
+        [Tooltip("Multiplier for the daytime atmosphere strength shader property")]
+        public float dayAtmosphereMultiplier = 1f;
+
+        [Tooltip("Multiplier for the horizon glow strength at sunrise/sunset")]
+        public float horizonGlowMultiplier = 1f;
+
+        [Range(0f, 1f)]
+        [Tooltip("Multiplier for procedural star brightness (reduce when cloudy)")]
+        public float starVisibilityMultiplier = 1f;
+
+        // ─── CONTEXT MENU PRESETS ────────────────────────────────────
+
+        [ContextMenu("Preset: Clear")]
+        private void PresetClear()
+        {
+            profileName = "Clear";
+            cloudCoverageMin = 0.0f; cloudCoverageMax = 0.05f;
+            cloudDensity = 1f; cloudSharpness = 1.5f; cloudBrightness = 1f; cloudDarkness = 0.3f;
+            cloudColor = new Color(0.95f, 0.95f, 0.95f, 1f);
+            cloudShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
+            cloudScale = 5f; cloudSpeed = 0.3f;
+            fogDensityMultiplier = 0.3f; fogColorTint = Color.white; overrideFogColor = false;
+            sunIntensityMultiplier = 1.0f; moonIntensityMultiplier = 1.0f;
+            ambientIntensityMultiplier = 1.0f; ambientColorTint = Color.white;
+            bloomIntensity = 0.5f; bloomThreshold = 1f; vignetteIntensity = 0.1f;
+            colorAdjustmentExposure = 0f; colorAdjustmentContrast = 0f; colorAdjustmentSaturation = 0f;
+            windDirection = Vector3.right; windSpeed = 0.5f;
+            precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
+            dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 1f; starVisibilityMultiplier = 1f;
+        }
+
+        [ContextMenu("Preset: Slightly Cloudy")]
+        private void PresetSlightlyCloudy()
+        {
+            profileName = "Slightly Cloudy";
+            cloudCoverageMin = 0.1f; cloudCoverageMax = 0.25f;
+            cloudDensity = 1f; cloudSharpness = 1.5f; cloudBrightness = 1f; cloudDarkness = 0.35f;
+            cloudColor = new Color(0.95f, 0.95f, 0.95f, 1f);
+            cloudShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
+            cloudScale = 5f; cloudSpeed = 0.3f;
+            fogDensityMultiplier = 0.5f; fogColorTint = Color.white; overrideFogColor = false;
+            sunIntensityMultiplier = 0.95f; moonIntensityMultiplier = 1.0f;
+            ambientIntensityMultiplier = 0.95f; ambientColorTint = Color.white;
+            bloomIntensity = 0.4f; bloomThreshold = 1f; vignetteIntensity = 0.12f;
+            colorAdjustmentExposure = 0f; colorAdjustmentContrast = 0f; colorAdjustmentSaturation = 0f;
+            windDirection = Vector3.right; windSpeed = 0.8f;
+            precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
+            dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 0.9f; starVisibilityMultiplier = 0.9f;
+        }
+
+        [ContextMenu("Preset: Partly Cloudy")]
+        private void PresetPartlyCloudy()
+        {
+            profileName = "Partly Cloudy";
+            cloudCoverageMin = 0.3f; cloudCoverageMax = 0.5f;
+            cloudDensity = 1.1f; cloudSharpness = 1.5f; cloudBrightness = 1f; cloudDarkness = 0.4f;
+            cloudColor = new Color(0.93f, 0.93f, 0.93f, 1f);
+            cloudShadowColor = new Color(0.32f, 0.32f, 0.38f, 1f);
+            cloudScale = 5f; cloudSpeed = 0.3f;
+            fogDensityMultiplier = 0.7f; fogColorTint = Color.white; overrideFogColor = false;
+            sunIntensityMultiplier = 0.85f; moonIntensityMultiplier = 0.9f;
+            ambientIntensityMultiplier = 0.9f; ambientColorTint = Color.white;
+            bloomIntensity = 0.35f; bloomThreshold = 1f; vignetteIntensity = 0.15f;
+            colorAdjustmentExposure = 0f; colorAdjustmentContrast = 0f; colorAdjustmentSaturation = -5f;
+            windDirection = Vector3.right; windSpeed = 1f;
+            precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
+            dayAtmosphereMultiplier = 0.9f; horizonGlowMultiplier = 0.8f; starVisibilityMultiplier = 0.6f;
+        }
+
+        [ContextMenu("Preset: Mostly Cloudy")]
+        private void PresetMostlyCloudy()
+        {
+            profileName = "Mostly Cloudy";
+            cloudCoverageMin = 0.55f; cloudCoverageMax = 0.75f;
+            cloudDensity = 1.2f; cloudSharpness = 1.8f; cloudBrightness = 0.9f; cloudDarkness = 0.5f;
+            cloudColor = new Color(0.85f, 0.85f, 0.88f, 1f);
+            cloudShadowColor = new Color(0.28f, 0.28f, 0.34f, 1f);
+            cloudScale = 5f; cloudSpeed = 0.35f;
+            fogDensityMultiplier = 1.0f; fogColorTint = Color.white; overrideFogColor = false;
+            sunIntensityMultiplier = 0.6f; moonIntensityMultiplier = 0.7f;
+            ambientIntensityMultiplier = 0.75f; ambientColorTint = new Color(0.9f, 0.9f, 0.95f, 1f);
+            bloomIntensity = 0.25f; bloomThreshold = 1f; vignetteIntensity = 0.2f;
+            colorAdjustmentExposure = -0.1f; colorAdjustmentContrast = 5f; colorAdjustmentSaturation = -15f;
+            windDirection = Vector3.right; windSpeed = 1.2f;
+            precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
+            dayAtmosphereMultiplier = 0.7f; horizonGlowMultiplier = 0.5f; starVisibilityMultiplier = 0.2f;
+        }
+
+        [ContextMenu("Preset: Overcast")]
+        private void PresetOvercast()
+        {
+            profileName = "Overcast";
+            cloudCoverageMin = 0.85f; cloudCoverageMax = 0.95f;
+            cloudDensity = 1.4f; cloudSharpness = 2f; cloudBrightness = 0.75f; cloudDarkness = 0.6f;
+            cloudColor = new Color(0.75f, 0.76f, 0.80f, 1f);
+            cloudShadowColor = new Color(0.22f, 0.22f, 0.28f, 1f);
+            cloudScale = 6f; cloudSpeed = 0.4f;
+            fogDensityMultiplier = 1.5f; fogColorTint = new Color(0.7f, 0.72f, 0.78f, 1f); overrideFogColor = false;
+            sunIntensityMultiplier = 0.35f; moonIntensityMultiplier = 0.4f;
+            ambientIntensityMultiplier = 0.55f; ambientColorTint = new Color(0.82f, 0.84f, 0.90f, 1f);
+            bloomIntensity = 0.15f; bloomThreshold = 1.2f; vignetteIntensity = 0.25f;
+            colorAdjustmentExposure = -0.2f; colorAdjustmentContrast = 10f; colorAdjustmentSaturation = -25f;
+            windDirection = Vector3.right; windSpeed = 1.4f;
+            precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
+            dayAtmosphereMultiplier = 0.4f; horizonGlowMultiplier = 0.2f; starVisibilityMultiplier = 0.05f;
+        }
+
+        [ContextMenu("Preset: Super Cloudy")]
+        private void PresetSuperCloudy()
+        {
+            profileName = "Super Cloudy";
+            cloudCoverageMin = 0.93f; cloudCoverageMax = 0.99f;
+            cloudDensity = 1.6f; cloudSharpness = 2.5f; cloudBrightness = 0.65f; cloudDarkness = 0.7f;
+            cloudColor = new Color(0.65f, 0.67f, 0.72f, 1f);
+            cloudShadowColor = new Color(0.18f, 0.18f, 0.22f, 1f);
+            cloudScale = 6f; cloudSpeed = 0.4f;
+            fogDensityMultiplier = 2.0f; fogColorTint = new Color(0.62f, 0.64f, 0.70f, 1f); overrideFogColor = false;
+            sunIntensityMultiplier = 0.2f; moonIntensityMultiplier = 0.25f;
+            ambientIntensityMultiplier = 0.4f; ambientColorTint = new Color(0.72f, 0.74f, 0.82f, 1f);
+            bloomIntensity = 0.1f; bloomThreshold = 1.3f; vignetteIntensity = 0.3f;
+            colorAdjustmentExposure = -0.35f; colorAdjustmentContrast = 15f; colorAdjustmentSaturation = -35f;
+            windDirection = Vector3.right; windSpeed = 1.6f;
+            precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
+            dayAtmosphereMultiplier = 0.25f; horizonGlowMultiplier = 0.1f; starVisibilityMultiplier = 0.0f;
+        }
+
+        [ContextMenu("Preset: Light Rain")]
+        private void PresetLightRain()
+        {
+            profileName = "Light Rain";
+            cloudCoverageMin = 0.7f; cloudCoverageMax = 0.85f;
+            cloudDensity = 1.3f; cloudSharpness = 2f; cloudBrightness = 0.7f; cloudDarkness = 0.6f;
+            cloudColor = new Color(0.58f, 0.61f, 0.68f, 1f);
+            cloudShadowColor = new Color(0.20f, 0.21f, 0.26f, 1f);
+            cloudScale = 5.5f; cloudSpeed = 0.5f;
+            fogDensityMultiplier = 1.8f; fogColorTint = new Color(0.55f, 0.60f, 0.68f, 1f); overrideFogColor = true;
+            sunIntensityMultiplier = 0.4f; moonIntensityMultiplier = 0.35f;
+            ambientIntensityMultiplier = 0.5f; ambientColorTint = new Color(0.68f, 0.72f, 0.82f, 1f);
+            bloomIntensity = 0.1f; bloomThreshold = 1.2f; vignetteIntensity = 0.3f;
+            colorAdjustmentExposure = -0.25f; colorAdjustmentContrast = 8f; colorAdjustmentSaturation = -20f;
+            windDirection = new Vector3(1f, 0f, 0.3f); windSpeed = 1.5f;
+            precipitationType = PrecipitationType.Rain; precipitationIntensity = 0.4f;
+            dayAtmosphereMultiplier = 0.5f; horizonGlowMultiplier = 0.15f; starVisibilityMultiplier = 0.0f;
+        }
+
+        [ContextMenu("Preset: Heavy Storm")]
+        private void PresetHeavyStorm()
+        {
+            profileName = "Heavy Storm";
+            cloudCoverageMin = 0.9f; cloudCoverageMax = 0.98f;
+            cloudDensity = 1.8f; cloudSharpness = 3f; cloudBrightness = 0.5f; cloudDarkness = 0.8f;
+            cloudColor = new Color(0.40f, 0.42f, 0.48f, 1f);
+            cloudShadowColor = new Color(0.12f, 0.12f, 0.16f, 1f);
+            cloudScale = 7f; cloudSpeed = 0.8f;
+            fogDensityMultiplier = 2.5f; fogColorTint = new Color(0.35f, 0.38f, 0.45f, 1f); overrideFogColor = true;
+            sunIntensityMultiplier = 0.15f; moonIntensityMultiplier = 0.1f;
+            ambientIntensityMultiplier = 0.3f; ambientColorTint = new Color(0.55f, 0.58f, 0.68f, 1f);
+            bloomIntensity = 0.05f; bloomThreshold = 1.5f; vignetteIntensity = 0.4f;
+            colorAdjustmentExposure = -0.5f; colorAdjustmentContrast = 20f; colorAdjustmentSaturation = -45f;
+            windDirection = new Vector3(1f, 0f, 0.5f); windSpeed = 2.5f;
+            precipitationType = PrecipitationType.Rain; precipitationIntensity = 1.0f;
+            dayAtmosphereMultiplier = 0.15f; horizonGlowMultiplier = 0.05f; starVisibilityMultiplier = 0.0f;
+        }
+
+        [ContextMenu("Preset: Fog")]
+        private void PresetFog()
+        {
+            profileName = "Fog";
+            cloudCoverageMin = 0.3f; cloudCoverageMax = 0.5f;
+            cloudDensity = 0.8f; cloudSharpness = 1f; cloudBrightness = 0.9f; cloudDarkness = 0.3f;
+            cloudColor = new Color(0.88f, 0.90f, 0.92f, 1f);
+            cloudShadowColor = new Color(0.70f, 0.72f, 0.76f, 1f);
+            cloudScale = 4f; cloudSpeed = 0.15f;
+            fogDensityMultiplier = 4.0f; fogColorTint = new Color(0.75f, 0.78f, 0.82f, 1f); overrideFogColor = true;
+            sunIntensityMultiplier = 0.5f; moonIntensityMultiplier = 0.5f;
+            ambientIntensityMultiplier = 0.7f; ambientColorTint = new Color(0.85f, 0.88f, 0.92f, 1f);
+            bloomIntensity = 0.3f; bloomThreshold = 0.8f; vignetteIntensity = 0.35f;
+            colorAdjustmentExposure = -0.15f; colorAdjustmentContrast = -10f; colorAdjustmentSaturation = -30f;
+            windDirection = Vector3.right; windSpeed = 0.2f;
+            precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
+            dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.3f; starVisibilityMultiplier = 0.0f;
+        }
+
+        [ContextMenu("Preset: Snow")]
+        private void PresetSnow()
+        {
+            profileName = "Snow";
+            cloudCoverageMin = 0.6f; cloudCoverageMax = 0.8f;
+            cloudDensity = 1.2f; cloudSharpness = 1.8f; cloudBrightness = 1.1f; cloudDarkness = 0.3f;
+            cloudColor = new Color(0.92f, 0.94f, 0.98f, 1f);
+            cloudShadowColor = new Color(0.60f, 0.62f, 0.70f, 1f);
+            cloudScale = 5f; cloudSpeed = 0.25f;
+            fogDensityMultiplier = 1.5f; fogColorTint = new Color(0.85f, 0.88f, 0.95f, 1f); overrideFogColor = false;
+            sunIntensityMultiplier = 0.5f; moonIntensityMultiplier = 0.6f;
+            ambientIntensityMultiplier = 0.7f; ambientColorTint = new Color(0.90f, 0.92f, 0.98f, 1f);
+            bloomIntensity = 0.6f; bloomThreshold = 0.9f; vignetteIntensity = 0.2f;
+            colorAdjustmentExposure = 0.1f; colorAdjustmentContrast = -5f; colorAdjustmentSaturation = -20f;
+            windDirection = new Vector3(0.8f, 0f, 0.2f); windSpeed = 0.8f;
+            precipitationType = PrecipitationType.Snow; precipitationIntensity = 0.7f;
+            dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.4f; starVisibilityMultiplier = 0.1f;
+        }
+    }
+}

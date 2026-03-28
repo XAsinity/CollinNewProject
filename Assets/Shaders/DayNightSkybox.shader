@@ -55,6 +55,11 @@ Shader "Custom/DayNightSkybox"
         _CloudSunsetColor ("Cloud Sunset Color", Color) = (1.0, 0.5, 0.2, 1)
         _CloudAlpha ("Cloud Opacity", Range(0, 1)) = 0.8
         _CloudCoverage ("Cloud Coverage", Range(0, 1)) = 0.5
+        _CloudBrightness ("Cloud Brightness", Range(0, 2)) = 1.0
+        _CloudDarkness ("Cloud Darkness (Shadow Intensity)", Range(0, 1)) = 0.5
+        _CloudColor ("Cloud Color Tint", Color) = (1, 1, 1, 1)
+        _CloudShadowColor ("Cloud Shadow Color", Color) = (0.35, 0.35, 0.40, 1)
+        _CloudHorizonCoverage ("Cloud Horizon Coverage", Range(0, 1)) = 0.8
 
         [Header(Procedural Stars)]
         _EnableStars ("Enable Procedural Stars", Float) = 1
@@ -174,6 +179,11 @@ Shader "Custom/DayNightSkybox"
             float4 _CloudSunsetColor;
             float _CloudAlpha;
             float _CloudCoverage;
+            float _CloudBrightness;
+            float _CloudDarkness;
+            float4 _CloudColor;
+            float4 _CloudShadowColor;
+            float _CloudHorizonCoverage;
 
             float _EnableStars;
             float _StarDensity;
@@ -503,8 +513,11 @@ Shader "Custom/DayNightSkybox"
             {
                 cloudAlpha = 0.0;
 
-                // Clouds only appear in the upper hemisphere
-                float heightMask = smoothstep(0.0, _CloudHeight + 0.3, dir.y);
+                // How far below the horizon clouds extend.
+                // At full coverage + full horizonCoverage the clouds wrap the entire sky sphere.
+                // At zero coverage horizonPush = 0, so the upper-hemisphere-only default is preserved.
+                float horizonPush = _CloudHorizonCoverage * saturate(_CloudCoverage * 2.0);
+                float heightMask = smoothstep(-horizonPush, _CloudHeight + 0.3, dir.y);
                 if (heightMask < 0.001) return float3(0, 0, 0);
 
                 // Scroll cloud UVs over time using wind direction
@@ -525,13 +538,24 @@ Shader "Custom/DayNightSkybox"
                     return float3(0, 0, 0);
                 }
 
-                // Add a finer detail layer
+                // Add a finer detail layer for variety
                 float detail = FBMFine(cloudPos * 1.5 + 5.0) * 0.3;
                 cloud = saturate(cloud + detail * 0.2);
 
                 // Time-based cloud color
-                float3 cloudColor = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
-                cloudColor = lerp(cloudColor, _CloudSunsetColor.rgb, sunsetFactor * 0.8);
+                float3 timeColor = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
+                timeColor = lerp(timeColor, _CloudSunsetColor.rgb, sunsetFactor * 0.8);
+
+                // Apply weather color tint (multiplicative)
+                float3 tintedColor = timeColor * _CloudColor.rgb;
+
+                // Shadow effect: undersides of clouds are darker
+                // Thick parts (cloud close to 1) are bright, thin edges use shadow color
+                float3 litColor   = tintedColor * _CloudBrightness;
+                float3 shadowBlend = lerp(_CloudShadowColor.rgb, litColor, cloud);
+
+                // Additional darkening for overcast/stormy weather
+                float3 cloudColor = shadowBlend * (1.0 - _CloudDarkness * (1.0 - cloud) * 0.5);
 
                 cloudAlpha = cloud * heightMask * _CloudAlpha;
                 return cloudColor;

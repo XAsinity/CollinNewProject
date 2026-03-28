@@ -40,6 +40,15 @@ public class DayNightCycle : MonoBehaviour
     private float currentTimeOfDay;
     private bool isPaused = false;
 
+    // ─── WEATHER MULTIPLIERS (set by WeatherManager) ──────────────
+    private float _sunIntensityMultiplier   = 1f;
+    private float _moonIntensityMultiplier  = 1f;
+    private float _ambientMultiplier        = 1f;
+    private Color _ambientColorTint         = Color.white;
+    private float _fogMultiplier            = 1f;
+    private bool  _fogColorOverrideEnabled  = false;
+    private Color _fogColorOverride         = Color.white;
+
     void Start()
     {
         currentTimeOfDay = startTimeOfDay;
@@ -81,7 +90,7 @@ public class DayNightCycle : MonoBehaviour
         sunLight.transform.rotation = Quaternion.Euler(sunAngle, 170f, 0f);
 
         sunLight.color = sunLightColor.Evaluate(currentTimeOfDay);
-        sunLight.intensity = sunLightIntensity.Evaluate(currentTimeOfDay);
+        sunLight.intensity = sunLightIntensity.Evaluate(currentTimeOfDay) * _sunIntensityMultiplier;
         sunLight.enabled = sunLight.intensity > 0.01f;
     }
 
@@ -93,22 +102,24 @@ public class DayNightCycle : MonoBehaviour
         moonLight.transform.rotation = Quaternion.Euler(moonAngle, 170f, 0f);
 
         moonLight.color = moonLightColor.Evaluate(currentTimeOfDay);
-        moonLight.intensity = moonLightIntensity.Evaluate(currentTimeOfDay);
+        moonLight.intensity = moonLightIntensity.Evaluate(currentTimeOfDay) * _moonIntensityMultiplier;
         moonLight.enabled = moonLight.intensity > 0.01f;
     }
 
     void UpdateAmbient()
     {
-        RenderSettings.ambientLight = ambientColor.Evaluate(currentTimeOfDay);
-        RenderSettings.ambientIntensity = ambientIntensity.Evaluate(currentTimeOfDay);
+        RenderSettings.ambientLight = ambientColor.Evaluate(currentTimeOfDay) * _ambientColorTint;
+        RenderSettings.ambientIntensity = ambientIntensity.Evaluate(currentTimeOfDay) * _ambientMultiplier;
     }
 
     void UpdateFog()
     {
         RenderSettings.fog = enableFog;
         if (!enableFog) return;
-        RenderSettings.fogColor = fogColor.Evaluate(currentTimeOfDay);
-        RenderSettings.fogDensity = fogDensityCurve.Evaluate(currentTimeOfDay);
+        RenderSettings.fogColor = _fogColorOverrideEnabled
+            ? _fogColorOverride
+            : fogColor.Evaluate(currentTimeOfDay);
+        RenderSettings.fogDensity = fogDensityCurve.Evaluate(currentTimeOfDay) * _fogMultiplier;
     }
 
     // ─── PUBLIC API ───────────────────────────────────────
@@ -131,4 +142,23 @@ public class DayNightCycle : MonoBehaviour
     public void PauseCycle() => isPaused = true;
     public void ResumeCycle() => isPaused = false;
     public void TogglePause() => isPaused = !isPaused;
+
+    // ─── WEATHER INTEGRATION ──────────────────────────────────────
+
+    /// <summary>Called by WeatherManager to scale sun light intensity.</summary>
+    public void SetSunIntensityMultiplier(float value)  => _sunIntensityMultiplier  = Mathf.Max(0f, value);
+    /// <summary>Called by WeatherManager to scale moon light intensity.</summary>
+    public void SetMoonIntensityMultiplier(float value) => _moonIntensityMultiplier = Mathf.Max(0f, value);
+    /// <summary>Called by WeatherManager to scale ambient light intensity.</summary>
+    public void SetAmbientMultiplier(float value)       => _ambientMultiplier       = Mathf.Max(0f, value);
+    /// <summary>Called by WeatherManager to tint ambient light color.</summary>
+    public void SetAmbientColorTint(Color tint)         => _ambientColorTint        = tint;
+    /// <summary>Called by WeatherManager to scale fog density.</summary>
+    public void SetFogMultiplier(float value)           => _fogMultiplier           = Mathf.Max(0f, value);
+    /// <summary>Called by WeatherManager to override the time-of-day fog color.</summary>
+    public void SetFogColorOverride(Color color, bool enable)
+    {
+        _fogColorOverrideEnabled = enable;
+        _fogColorOverride        = color;
+    }
 }
