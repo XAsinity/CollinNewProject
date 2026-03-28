@@ -373,7 +373,7 @@ Shader "Custom/DayNightSkybox"
                 return f;
             }
 
-            // ─── 2D CLOUD NOISE ──────────────────────────────────────
+            // ─── 2D VALUE NOISE (used for cloud color variation) ─────────
 
             // Hash for 2D value noise
             float Hash2D(float2 p)
@@ -399,39 +399,6 @@ Shader "Custom/DayNightSkybox"
                 return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
             }
 
-            // FBM 3 octaves — large base cloud shapes
-            float CloudFBMBase(float2 p)
-            {
-                float2 pp = p;
-                float v = 0.0, a = 0.5, f = 1.0, t = 0.0;
-                v += a * ValueNoise(pp * f); t += a; a *= 0.5; f *= 2.0; pp += float2(13.7, 27.1);
-                v += a * ValueNoise(pp * f); t += a; a *= 0.5; f *= 2.0; pp += float2(13.7, 27.1);
-                v += a * ValueNoise(pp * f); t += a;
-                return v / t;
-            }
-
-            // FBM 4 octaves — medium cloud detail and texture
-            float CloudFBMDetail(float2 p)
-            {
-                float2 pp = p;
-                float v = 0.0, a = 0.5, f = 1.0, t = 0.0;
-                v += a * ValueNoise(pp * f); t += a; a *= 0.5; f *= 2.0; pp += float2(13.7, 27.1);
-                v += a * ValueNoise(pp * f); t += a; a *= 0.5; f *= 2.0; pp += float2(13.7, 27.1);
-                v += a * ValueNoise(pp * f); t += a; a *= 0.5; f *= 2.0; pp += float2(13.7, 27.1);
-                v += a * ValueNoise(pp * f); t += a;
-                return v / t;
-            }
-
-            // FBM 2 octaves — fine wisps at cloud edges
-            float CloudFBMWisp(float2 p)
-            {
-                float2 pp = p;
-                float v = 0.0, a = 0.5, f = 1.0, t = 0.0;
-                v += a * ValueNoise(pp * f); t += a; a *= 0.5; f *= 2.0; pp += float2(13.7, 27.1);
-                v += a * ValueNoise(pp * f); t += a;
-                return v / t;
-            }
-
             // Project sky direction onto a virtual flat cloud plane at the given altitude.
             // Eliminates spherical pole-stretching and gives natural horizon parallax.
             float2 GetCloudPlaneUV(float3 worldDir, float altitude)
@@ -442,34 +409,47 @@ Shader "Custom/DayNightSkybox"
             }
 
             // Compute cloud density for one layer using conveyor-belt wind scrolling.
-            // baseUV       : flat-plane projected sky UV
-            // cloudScale   : noise frequency multiplier (higher = smaller clouds)
-            // cloudSpeed   : base scroll speed
-            // cloudDir     : wind direction vector (xz used; magnitude = windSpeed)
-            // coverage     : 0=clear, 1=overcast
+            // baseUV        : flat-plane projected sky UV
+            // cloudScale    : noise frequency multiplier (higher = smaller clouds)
+            // cloudSpeed    : base scroll speed
+            // cloudDir      : wind direction vector (xz used; magnitude = windSpeed)
+            // coverage      : 0=clear, 1=overcast
             // density/sharpness : edge-hardness controls
-            // time         : _Time.y
-            // dissolveOff  : extra UV offset for storm-roll transitions
-            // edgeSoftness : smoothstep edge width (low=hard edges, high=wispy)
-            // variation    : wisp/detail blend weight (0=smooth blobs, 1=complex billowy)
+            // time          : _Time.y
+            // dissolveOff   : extra UV offset for storm-roll transitions
+            // edgeSoftness  : smoothstep edge width (low=hard edges, high=wispy)
+            // variation     : wisp/detail blend weight (0=smooth blobs, 1=complex billowy)
+            // layerAltitude : Y coordinate in 3D noise space — separates layers volumetrically
             float CalculateCloudLayer(float2 baseUV, float cloudScale, float cloudSpeed,
                                       float4 cloudDir, float coverage, float density,
                                       float sharpness, float time, float2 dissolveOff,
-                                      float edgeSoftness, float variation)
+                                      float edgeSoftness, float variation, float layerAltitude)
             {
                 // CONVEYOR BELT: continuously shift UVs so clouds physically scroll
                 float2 windOffset = cloudDir.xz * cloudSpeed * time;
                 float2 cloudUV = baseUV * cloudScale + windOffset + dissolveOff;
 
-                // Low-frequency base — defines WHERE large cloud masses form
-                float baseShape = CloudFBMBase(cloudUV * 0.3);
+                // Lift flat-plane UV into 3D noise space.
+                // layerAltitude sets the Y slice so Layer 1 and Layer 2 read from
+                // separate regions of the noise field and appear as distinct sky layers.
+                float2 scaledUV = cloudUV * 0.3;
+
+                // Pseudo-parallax thickness: sample FBM at two slightly different depth
+                // offsets and blend them. The difference gives an illusion of cloud volume —
+                // thick cores remain opaque while thin edges wisps away.
+                float3 p3Near = float3(scaledUV.x, layerAltitude - 0.08, scaledUV.y);
+                float3 p3Far  = float3(scaledUV.x, layerAltitude + 0.08, scaledUV.y);
+                float baseShape = lerp(FBM(p3Near), FBM(p3Far), 0.5);
 
                 // Mid-frequency detail — adds billowy texture within cloud masses
-                float2 detailUV = cloudUV * 1.2 + windOffset * 0.15;
-                float detail = CloudFBMDetail(detailUV * 0.8);
+                float2 detailScaled = (cloudUV * 1.2 + windOffset * 0.15) * 0.8;
+                float3 p3Detail = float3(detailScaled.x + 5.3, layerAltitude + 1.7, detailScaled.y + 3.1);
+                float detail = FBMFine(p3Detail);
 
                 // High-frequency wisps — thin edges, subtle variation
-                float wisps = CloudFBMWisp(cloudUV * 2.5 + windOffset * 0.3);
+                float2 wispScaled = cloudUV * 2.5 + windOffset * 0.3;
+                float3 p3Wisp = float3(wispScaled.x + 17.5, layerAltitude + 3.2, wispScaled.y + 11.1);
+                float wisps = FBM(p3Wisp);
 
                 // Blend: base shape controls WHERE, detail/wisps add surface character
                 // detailW=0.3 is fixed; wispW varies with variation for edge complexity
@@ -691,13 +671,13 @@ Shader "Custom/DayNightSkybox"
                 // giving natural horizon parallax (distant clouds compress toward the horizon).
                 float2 cloudPlaneUV = GetCloudPlaneUV(dir, 1.0);
 
-                // ── Layer 1 — primary cloud density via conveyor-belt FBM
+                // ── Layer 1 — primary cloud density via conveyor-belt 3D FBM
                 float2 dissolveOff1 = float2(_CloudDissolveOffset.x, _CloudDissolveOffset.y);
                 float density = CalculateCloudLayer(
                     cloudPlaneUV, _CloudScale, _CloudSpeed,
                     _CloudDirection, _CloudCoverage, _CloudDensity,
                     _CloudSharpness, _Time.y, dissolveOff1,
-                    _CloudEdgeSoftness, _CloudVariation);
+                    _CloudEdgeSoftness, _CloudVariation, 0.5);
                 density *= heightMask;
 
                 // ── Cloud Layer 2 — high-altitude weather-driven clouds (_Cloud2* properties)
@@ -718,7 +698,7 @@ Shader "Custom/DayNightSkybox"
                             cloudPlaneUV2, _Cloud2Scale, _Cloud2Speed,
                             _CloudDirection, _Cloud2Coverage, _Cloud2Density,
                             _Cloud2Sharpness, _Time.y, dissolveOff2,
-                            _CloudEdgeSoftness * 1.5, 0.5);
+                            _CloudEdgeSoftness * 1.5, 0.5, 1.2);
                         density2 *= heightMask2;
 
                         // Layer 2 color — distinct brightness/darkness conveys altitude and mass
