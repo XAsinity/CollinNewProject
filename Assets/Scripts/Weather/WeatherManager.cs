@@ -303,10 +303,12 @@ public class WeatherManager : MonoBehaviour
             dayNightCycle.SetFogMultiplier(
                 Mathf.Lerp(from.fogDensityMultiplier, to.fogDensityMultiplier, t));
 
-            // Fog colour override — use target state to decide whether to override
-            bool overrideFog = (t >= 0.5f) ? to.overrideFogColor : from.overrideFogColor;
+            // Fog colour override — smoothly cross-fade between the two fog colours.
+            // If either profile wants to override the fog colour, enable the override for the
+            // duration of the transition so there's no hard snap at the 50% mark.
+            bool eitherOverrides = from.overrideFogColor || to.overrideFogColor;
             Color fogTint = Color.Lerp(from.fogColorTint, to.fogColorTint, t);
-            dayNightCycle.SetFogColorOverride(fogTint, overrideFog);
+            dayNightCycle.SetFogColorOverride(fogTint, eitherOverrides);
 
             // Fog mode override — switch to target profile's fog mode at the midpoint
             bool useFogMode = (t >= 0.5f) ? to.overrideFogMode : from.overrideFogMode;
@@ -317,9 +319,9 @@ public class WeatherManager : MonoBehaviour
             }
         }
 
-        // ── Volume influence: lerped value is applied as _weatherVolume.weight in Update()
-        // so the DayNightVolumeController (priority 0) can show through for clear weather.
-        _currentVolumeInfluence = Mathf.Lerp(from.volumeInfluence, to.volumeInfluence, t);
+        // ── Volume influence: smoothstep easing avoids a perceptible snap when going
+        // from 0 influence (clear weather) to > 0 (stormy weather).
+        _currentVolumeInfluence = Mathf.SmoothStep(from.volumeInfluence, to.volumeInfluence, t);
 
         // ── Apply URP Volume overrides (these take effect when weight > 0)
         if (_bloom != null)

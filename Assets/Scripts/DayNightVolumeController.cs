@@ -126,6 +126,9 @@ public class DayNightVolumeController : MonoBehaviour
         _volume.profile = _profile;
 
         _bloom = _profile.Add<Bloom>(true);
+        // Scatter controls how far bloom spreads across the screen (0=tight, 1=full screen).
+        // Setting 0.7 ensures bloom reaches the screen edges consistently.
+        _bloom.scatter.Override(0.7f);
         _vignette = _profile.Add<Vignette>(true);
         _colorAdjustments = _profile.Add<ColorAdjustments>(true);
     }
