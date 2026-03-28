@@ -88,9 +88,14 @@ public class WeatherManager : MonoBehaviour
     private float _baseCloud2Density   = 0.8f;
     private float _baseCloud2Sharpness = 2f;
 
-    // Base horizon haze strength cached from the material at Start so
-    // weather profiles can multiply it rather than override it absolutely.
-    private float _baseHorizonHazeStrength = 0.3f;
+    // ─── CLOUD SPEED SMOOTHING ────────────────────────────────────────
+    // SmoothDamp prevents abrupt cloud speed changes during weather transitions.
+    // Speed ramps naturally over cloudSpeedSmoothTime seconds instead of snapping.
+    [SerializeField] private float cloudSpeedSmoothTime = 3f;
+    private float _currentCloudSpeed;
+    private float _cloudSpeedVelocity;
+    private float _currentCloud2Speed;
+    private float _cloudSpeedVelocity2;
 
     // Current lerped volume influence (controls _weatherVolume.weight)
     private float _currentVolumeInfluence = 0f;
@@ -124,9 +129,6 @@ public class WeatherManager : MonoBehaviour
             _baseCloudDensity   = _skyboxMaterial.GetFloat("_CloudDensity");
             _baseCloudSharpness = _skyboxMaterial.GetFloat("_CloudSharpness");
 
-            if (_skyboxMaterial.HasProperty("_HorizonHazeStrength"))
-                _baseHorizonHazeStrength = _skyboxMaterial.GetFloat("_HorizonHazeStrength");
-
             if (_skyboxMaterial.HasProperty("_Cloud2Scale"))
                 _baseCloud2Scale = _skyboxMaterial.GetFloat("_Cloud2Scale");
             if (_skyboxMaterial.HasProperty("_Cloud2Speed"))
@@ -135,6 +137,19 @@ public class WeatherManager : MonoBehaviour
                 _baseCloud2Density = _skyboxMaterial.GetFloat("_Cloud2Density");
             if (_skyboxMaterial.HasProperty("_Cloud2Sharpness"))
                 _baseCloud2Sharpness = _skyboxMaterial.GetFloat("_Cloud2Sharpness");
+        }
+
+        // Initialise the smoothed speed trackers to the starting profile's target speed
+        // so there is no ramp-up on the first frame.
+        if (currentWeather != null)
+        {
+            _currentCloudSpeed  = _baseCloudSpeed  * currentWeather.cloudSpeedMultiplier  + currentWeather.windSpeedBoost;
+            _currentCloud2Speed = _baseCloud2Speed * currentWeather.cloud2SpeedMultiplier + currentWeather.windSpeedBoost;
+        }
+        else
+        {
+            _currentCloudSpeed  = _baseCloudSpeed;
+            _currentCloud2Speed = _baseCloud2Speed;
         }
 
         SetupVolume();
@@ -184,7 +199,9 @@ public class WeatherManager : MonoBehaviour
                 _skyboxMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
                 _skyboxMaterial.SetFloat("_DayAtmosphereStrength", 1f);
                 _skyboxMaterial.SetFloat("_HorizonGlowStrength",   1f);
-                _skyboxMaterial.SetFloat("_HorizonHazeStrength",   _baseHorizonHazeStrength);
+                _skyboxMaterial.SetFloat("_HorizonHazeStrength",   0.15f);
+                _skyboxMaterial.SetFloat("_HorizonHazeHeight",     0.1f);
+                _skyboxMaterial.SetFloat("_HorizonHazeFalloff",    4f);
                 _skyboxMaterial.SetFloat("_StarBrightness",        1.2f);
             }
         }
@@ -415,9 +432,12 @@ public class WeatherManager : MonoBehaviour
                 t);
             _skyboxMaterial.SetVector("_CloudDirection", new Vector4(windDir.x, windDir.y, windDir.z, 0f));
 
-            // Cloud speed scalar for the shader's time-based scroll
-            _skyboxMaterial.SetFloat("_CloudSpeed",
-                _baseCloudSpeed * Mathf.Lerp(from.cloudSpeedMultiplier, to.cloudSpeedMultiplier, t));
+            // Cloud speed — use SmoothDamp so speed changes ramp naturally rather than
+            // snapping on weather transitions (Issue 3 fix).
+            float boost = Mathf.Lerp(from.windSpeedBoost, to.windSpeedBoost, t);
+            float targetCloudSpeed = _baseCloudSpeed * Mathf.Lerp(from.cloudSpeedMultiplier, to.cloudSpeedMultiplier, t) + boost;
+            _currentCloudSpeed = Mathf.SmoothDamp(_currentCloudSpeed, targetCloudSpeed, ref _cloudSpeedVelocity, cloudSpeedSmoothTime);
+            _skyboxMaterial.SetFloat("_CloudSpeed", _currentCloudSpeed);
 
             // Atmosphere overrides
             _skyboxMaterial.SetFloat("_DayAtmosphereStrength",
@@ -429,11 +449,12 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_StarBrightness",
                 1.2f * Mathf.Lerp(from.starVisibilityMultiplier, to.starVisibilityMultiplier, t));
 
-            // Horizon Haze (WeatherManager is the SOLE controller — DayNightCycle does NOT touch these)
-            // _HorizonHazeStrength uses a multiplier on the designer's base material value so the
-            // material setting is the source of truth and weather profiles only scale it.
+            // ─── HORIZON HAZE ──────────────────────────────────────────
+            // WeatherManager is the SOLE controller of horizon haze.
+            // DayNightCycle does NOT touch these properties.
+            // Profile values are absolute (no base multiplier).
             _skyboxMaterial.SetFloat("_HorizonHazeStrength",
-                _baseHorizonHazeStrength * Mathf.Lerp(from.horizonHazeMultiplier, to.horizonHazeMultiplier, t));
+                Mathf.Lerp(from.horizonHazeStrength, to.horizonHazeStrength, t));
             _skyboxMaterial.SetFloat("_HorizonHazeHeight",
                 Mathf.Lerp(from.horizonHazeHeight, to.horizonHazeHeight, t));
             _skyboxMaterial.SetFloat("_HorizonHazeFalloff",
@@ -444,7 +465,11 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_Cloud2Density",   _baseCloud2Density   * Mathf.Lerp(from.cloud2DensityMultiplier,   to.cloud2DensityMultiplier,   t));
             _skyboxMaterial.SetFloat("_Cloud2Sharpness", _baseCloud2Sharpness * Mathf.Lerp(from.cloud2SharpnessMultiplier, to.cloud2SharpnessMultiplier, t));
             _skyboxMaterial.SetFloat("_Cloud2Scale",     _baseCloud2Scale     * Mathf.Lerp(from.cloud2ScaleMultiplier,     to.cloud2ScaleMultiplier,     t));
-            _skyboxMaterial.SetFloat("_Cloud2Speed",     _baseCloud2Speed     * Mathf.Lerp(from.cloud2SpeedMultiplier,     to.cloud2SpeedMultiplier,     t));
+
+            // Cloud2 speed also uses SmoothDamp for smooth transitions (Issue 3 fix).
+            float targetCloud2Speed = _baseCloud2Speed * Mathf.Lerp(from.cloud2SpeedMultiplier, to.cloud2SpeedMultiplier, t) + boost;
+            _currentCloud2Speed = Mathf.SmoothDamp(_currentCloud2Speed, targetCloud2Speed, ref _cloudSpeedVelocity2, cloudSpeedSmoothTime);
+            _skyboxMaterial.SetFloat("_Cloud2Speed", _currentCloud2Speed);
             _skyboxMaterial.SetFloat("_Cloud2Brightness", Mathf.Lerp(from.cloud2Brightness, to.cloud2Brightness, t));
             _skyboxMaterial.SetFloat("_Cloud2Darkness",   Mathf.Lerp(from.cloud2Darkness,   to.cloud2Darkness,   t));
             _skyboxMaterial.SetColor("_Cloud2Color",       Color.Lerp(from.cloud2Color,       to.cloud2Color,       t));
