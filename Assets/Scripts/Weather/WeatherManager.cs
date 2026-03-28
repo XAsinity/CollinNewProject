@@ -52,6 +52,10 @@ public class WeatherManager : MonoBehaviour
     private float _fromCoverage2 = 0f;
     private float _toCoverage2 = 0f;
 
+    // Directional dissolve offset — accumulates during transitions so departing
+    // clouds appear to roll away in the wind direction rather than fading in place.
+    private Vector4 _dissolveOffset = Vector4.zero;
+
     private float _autoWeatherTimer = 0f;
 
     private Material _skyboxMaterial;
@@ -164,9 +168,29 @@ public class WeatherManager : MonoBehaviour
         // Smooth transition
         if (_transitionProgress < 1f)
         {
+            // Accumulate directional dissolve offset from the departing weather's storm roll speed.
+            // The offset shifts cloud noise UVs in the source profile's wind direction, making the
+            // departing storm appear to roll away rather than uniformly fading.
+            if (_sourceWeather != null && _sourceWeather.stormRollSpeed > 0f)
+            {
+                Vector3 windDir = _sourceWeather.windDirection.normalized;
+                _dissolveOffset.x += windDir.x * _sourceWeather.stormRollSpeed * Time.deltaTime;
+                _dissolveOffset.y += windDir.z * _sourceWeather.stormRollSpeed * Time.deltaTime;
+            }
+
             _transitionProgress += Time.deltaTime / Mathf.Max(0.01f, transitionDuration);
             _transitionProgress = Mathf.Clamp01(_transitionProgress);
             ApplyWeatherLerp(_sourceWeather, _targetWeather, _transitionProgress);
+        }
+        else if (_dissolveOffset.sqrMagnitude > 0.0001f)
+        {
+            // Gradually decay the dissolve offset back to zero after the transition completes
+            // so the cloud pattern returns to its normal steady-state position.
+            _dissolveOffset = Vector4.Lerp(_dissolveOffset, Vector4.zero, Time.deltaTime * 0.5f);
+            if (_dissolveOffset.sqrMagnitude < 0.0001f)
+                _dissolveOffset = Vector4.zero;
+            if (_skyboxMaterial != null)
+                _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
         }
 
         // Keep the volume weight in sync every frame (volume influence can
@@ -224,6 +248,10 @@ public class WeatherManager : MonoBehaviour
         // Pick a random target coverage within the new profile's diversity range
         _toCoverage = Random.Range(profile.cloudCoverageMin, profile.cloudCoverageMax);
         _toCoverage2 = Random.Range(profile.cloud2CoverageMin, profile.cloud2CoverageMax);
+
+        // Reset the dissolve offset at the start of each transition so each
+        // storm departure begins from a neutral scroll position.
+        _dissolveOffset = Vector4.zero;
 
         _transitionProgress = 0f;
     }
@@ -360,6 +388,10 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_Cloud2Darkness",   Mathf.Lerp(from.cloud2Darkness,   to.cloud2Darkness,   t));
             _skyboxMaterial.SetColor("_Cloud2Color",       Color.Lerp(from.cloud2Color,       to.cloud2Color,       t));
             _skyboxMaterial.SetColor("_Cloud2ShadowColor", Color.Lerp(from.cloud2ShadowColor, to.cloud2ShadowColor, t));
+
+            // Directional dissolve offset — shifts cloud noise UVs so departing storms
+            // appear to roll away in the wind direction rather than fading uniformly.
+            _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
         }
 
         // ── Apply DayNightCycle multipliers
