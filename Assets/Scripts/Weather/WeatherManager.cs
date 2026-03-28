@@ -95,7 +95,7 @@ public class WeatherManager : MonoBehaviour
     private float _currentCloudSpeed;
     private float _cloudSpeedVelocity;
     private float _currentCloud2Speed;
-    private float _cloudSpeedVelocity2;
+    private float _cloud2SpeedVelocity;
 
     // Current lerped volume influence (controls _weatherVolume.weight)
     private float _currentVolumeInfluence = 0f;
@@ -468,7 +468,7 @@ public class WeatherManager : MonoBehaviour
 
             // Cloud2 speed also uses SmoothDamp for smooth transitions (Issue 3 fix).
             float targetCloud2Speed = _baseCloud2Speed * Mathf.Lerp(from.cloud2SpeedMultiplier, to.cloud2SpeedMultiplier, t) + boost;
-            _currentCloud2Speed = Mathf.SmoothDamp(_currentCloud2Speed, targetCloud2Speed, ref _cloudSpeedVelocity2, cloudSpeedSmoothTime);
+            _currentCloud2Speed = Mathf.SmoothDamp(_currentCloud2Speed, targetCloud2Speed, ref _cloud2SpeedVelocity, cloudSpeedSmoothTime);
             _skyboxMaterial.SetFloat("_Cloud2Speed", _currentCloud2Speed);
             _skyboxMaterial.SetFloat("_Cloud2Brightness", Mathf.Lerp(from.cloud2Brightness, to.cloud2Brightness, t));
             _skyboxMaterial.SetFloat("_Cloud2Darkness",   Mathf.Lerp(from.cloud2Darkness,   to.cloud2Darkness,   t));

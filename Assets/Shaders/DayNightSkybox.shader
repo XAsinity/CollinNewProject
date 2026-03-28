@@ -438,10 +438,14 @@ Shader "Custom/DayNightSkybox"
                 float phi   = asin(saturate(ndir.y)); // elevation (upper hemisphere only)
 
                 // Wind rotates the azimuth — clouds drift laterally, never vertically.
+                // The 0.1 factor converts the linear speed value to an angular rate (radians/unit-time)
+                // that produces visually similar drift speed to the original linear approach at
+                // mid-latitudes while being uniform in all directions across the sphere.
                 float2 windScroll = float2(cloudDir.x, cloudDir.z) * cloudSpeed * time * 0.1;
                 theta += windScroll.x;
 
                 // Storm dissolve offset — also angular so roll-off is uniform in all directions.
+                // Scaled by 0.1 to match the wind scroll convention (linear offset → angular offset).
                 float2 dissolveAngular = float2(dissolveOff.x, dissolveOff.z) * 0.1;
                 theta += dissolveAngular.x;
 
