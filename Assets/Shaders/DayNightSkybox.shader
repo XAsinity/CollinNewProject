@@ -118,6 +118,19 @@ Shader "Custom/DayNightSkybox"
         [Header(Atmosphere)]
         _VignetteColor ("Vignette Color", Color) = (0.02, 0.01, 0.05, 1)
         _VignetteStrength ("Vignette Strength", Range(0, 1)) = 0.15
+
+        [Header(Horizon Haze)]
+        _HorizonHazeStrength ("Horizon Haze Strength", Range(0, 1)) = 0.3
+        _HorizonHazeColor ("Horizon Haze Color", Color) = (1, 1, 1, 1)
+        _HorizonHazeHeight ("Horizon Haze Height", Range(0.01, 1.0)) = 0.15
+        _HorizonHazeFalloff ("Horizon Haze Falloff", Range(0.5, 8.0)) = 3.0
+
+        [Header(Cloud Layer 2)]
+        _CloudLayer2Coverage ("Cloud Layer 2 Coverage", Range(0, 1)) = 0.0
+        _CloudLayer2Scale ("Cloud Layer 2 Scale", Range(1, 20)) = 8.0
+        _CloudLayer2Speed ("Cloud Layer 2 Speed", Range(0, 2)) = 0.5
+        _CloudLayer2Opacity ("Cloud Layer 2 Opacity", Range(0, 1)) = 0.3
+        _CloudLayer2Height ("Cloud Layer 2 Height Bias", Range(-0.5, 0.8)) = 0.1
     }
 
     SubShader
@@ -235,6 +248,17 @@ Shader "Custom/DayNightSkybox"
 
             float4 _VignetteColor;
             float _VignetteStrength;
+
+            float _HorizonHazeStrength;
+            float4 _HorizonHazeColor;
+            float _HorizonHazeHeight;
+            float _HorizonHazeFalloff;
+
+            float _CloudLayer2Coverage;
+            float _CloudLayer2Scale;
+            float _CloudLayer2Speed;
+            float _CloudLayer2Opacity;
+            float _CloudLayer2Height;
 
             // ─── STRUCTS ─────────────────────────────────────────────
 
@@ -533,14 +557,39 @@ Shader "Custom/DayNightSkybox"
                 float coverage = 1.0 - _CloudCoverage;
                 cloud = saturate((cloud - coverage) * _CloudSharpness * _CloudDensity);
 
+                // Add a finer detail layer for variety
+                float detail = FBMFine(cloudPos * 1.5 + 5.0) * 0.3;
+                cloud = saturate(cloud + detail * 0.2);
+
+                // ── Cloud Layer 2: high-altitude wispy clouds at a different scale/speed
+                if (_CloudLayer2Coverage > 0.001)
+                {
+                    float heightMask2 = smoothstep(-horizonPush * 0.5, _CloudLayer2Height + 0.3, dir.y);
+                    if (heightMask2 > 0.001)
+                    {
+                        float3 windOffset2 = normalize(_CloudDirection.xyz + float3(0.001, 0, 0.001))
+                                             * _Time.y * _CloudLayer2Speed;
+                        // Offset seed so layer 2 is a completely different pattern from layer 1
+                        float3 cloudPos2 = dir * _CloudLayer2Scale + windOffset2 + float3(31.4, 17.2, 42.8);
+
+                        float cloud2 = FBM(cloudPos2);
+                        cloud2 = cloud2 * 0.5 + 0.5;
+
+                        float coverage2 = 1.0 - _CloudLayer2Coverage;
+                        // Slightly softer edges for upper wispy layer
+                        cloud2 = saturate((cloud2 - coverage2) * _CloudSharpness * 0.7);
+                        cloud2 *= heightMask2 * _CloudLayer2Opacity;
+
+                        // max() blending: where both layers overlap, the denser one wins,
+                        // creating natural depth as thin cirrus crosses over lower cumulus.
+                        cloud = max(cloud, cloud2);
+                    }
+                }
+
                 if (cloud < 0.001)
                 {
                     return float3(0, 0, 0);
                 }
-
-                // Add a finer detail layer for variety
-                float detail = FBMFine(cloudPos * 1.5 + 5.0) * 0.3;
-                cloud = saturate(cloud + detail * 0.2);
 
                 // Time-based cloud color
                 float3 timeColor = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
@@ -694,6 +743,17 @@ Shader "Custom/DayNightSkybox"
                     float cloudAlpha;
                     float3 cloudColor = CalculateClouds(dir, transitionFactor, dayFactor, cloudAlpha);
                     col = lerp(col, cloudColor, cloudAlpha);
+                }
+
+                // ─── HORIZON HAZE ─────────────────────────────────
+                // Fills the gap between the ground and cloud layer with an atmospheric
+                // haze band that is strongest at the horizon (dir.y ≈ 0) and fades upward.
+                if (_HorizonHazeStrength > 0.001)
+                {
+                    float hazeFactor = _HorizonHazeStrength
+                        * pow(saturate(1.0 - abs(dir.y) / max(_HorizonHazeHeight, 0.01)),
+                              _HorizonHazeFalloff);
+                    col = lerp(col, _HorizonHazeColor.rgb, hazeFactor);
                 }
 
                 // ─── VIGNETTE ─────────────────────────────────────
