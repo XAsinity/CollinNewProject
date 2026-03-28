@@ -116,10 +116,13 @@ public class DayNightCycle : MonoBehaviour
     {
         RenderSettings.fog = enableFog;
         if (!enableFog) return;
+        RenderSettings.fogMode = FogMode.ExponentialSquared;
         RenderSettings.fogColor = _fogColorOverrideEnabled
             ? _fogColorOverride
             : fogColor.Evaluate(currentTimeOfDay);
-        RenderSettings.fogDensity = fogDensityCurve.Evaluate(currentTimeOfDay) * _fogMultiplier;
+        // Clamp density so heavy weather multipliers can't create a total sky whiteout.
+        // ExponentialSquared already falls off naturally at distance, so 0.04 is plenty.
+        RenderSettings.fogDensity = Mathf.Min(fogDensityCurve.Evaluate(currentTimeOfDay) * _fogMultiplier, 0.04f);
     }
 
     // ─── PUBLIC API ───────────────────────────────────────
