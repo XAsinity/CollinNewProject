@@ -149,8 +149,8 @@ Shader "Custom/DayNightSkybox"
         _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
 
         [Header(Cloud Shell Altitude)]
-        _CloudShellRadius ("Cloud Shell Radius", Range(500, 5000)) = 1500.0
-        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 5000)) = 2500.0
+        _CloudShellRadius ("Cloud Shell Radius", Range(500, 20000)) = 10000.0
+        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 20000)) = 15000.0
     }
 
     SubShader
@@ -442,7 +442,9 @@ Shader "Custom/DayNightSkybox"
 
                 // Sphere-shell intersection: the view ray meets the cloud shell at ndir * shellRadius.
                 float3 shellPos = ndir * shellRadius;
-                float3 samplePos = shellPos * cloudScale * 0.001 + windOffset + dissolveOffset3D;
+                // Scale 0.0003: reduced from 0.001 to spread noise samples over the much larger
+                // shell (10000–15000 radius) so the noise field doesn't visibly tile.
+                float3 samplePos = shellPos * cloudScale * 0.0003 + windOffset + dissolveOffset3D;
 
                 // Layer separation: offset per-layer so Layer 1 and Layer 2 read from
                 // entirely different regions of the noise field and look distinct.
@@ -455,7 +457,7 @@ Shader "Custom/DayNightSkybox"
 
                 // Parallax blend for 3D depth: sample the inner shell at 97% radius; blending
                 // the two reads at 0.45 weight creates visible volumetric depth.
-                float3 sampleInner = ndir * (shellRadius * 0.97) * cloudScale * 0.001
+                float3 sampleInner = ndir * (shellRadius * 0.97) * cloudScale * 0.0003
                                    + windOffset + dissolveOffset3D
                                    + float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
                 sampleInner *= horizonCorrection;
@@ -477,7 +479,7 @@ Shader "Custom/DayNightSkybox"
                 // At low coverage (scattered clouds) this is near-zero so individual clouds
                 // stay clean. At high coverage (overcast) it injects fine surface texture so
                 // dense cloud masses don't look like flat, low-res sheets.
-                float highFreqDetail = FBMFine(samplePos * 4.0) * 0.12 * saturate(coverage - 0.3);
+                float highFreqDetail = FBMFine(samplePos * 4.0) * 0.06 * saturate(coverage - 0.3);
                 cloudNoise += highFreqDetail;
 
                 // Preliminary coverage threshold — used to weight the core detail pass below.
@@ -498,9 +500,9 @@ Shader "Custom/DayNightSkybox"
                 float edgeWidth = max(edgeSoftness * 2.0, 0.15);
                 cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
 
-                // Horizon fade: shallow-angle rays hit the shell far away, so clouds near the
-                // horizon naturally thin out — no explicit UV correction needed.
-                float horizonFade = smoothstep(0.02, 0.25, ndir.y);
+                // Horizon fade: smoothstep(0.01, 0.15) gives a wide, gradual fade so clouds
+                // thin out naturally near the horizon rather than hitting a hard cutoff wall.
+                float horizonFade = smoothstep(0.01, 0.15, ndir.y);
                 cloudMask *= horizonFade;
 
                 return cloudMask;
@@ -745,9 +747,11 @@ Shader "Custom/DayNightSkybox"
                         float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, edgeBright2, density2);
                         cloudColor2 = shadowBlend2 * (1.0 - _Cloud2Darkness * (1.0 - density2) * 0.6);
                         // Subtle low-frequency color variation using 3D noise on the shell surface
-                        float3 colorPos2 = normalize(dir) * _Cloud2ShellRadius * _Cloud2Scale * 0.0015
+                        float3 colorPos2 = normalize(dir) * _Cloud2ShellRadius * _Cloud2Scale * 0.0006
                                          + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _Cloud2Speed * _Time.y;
-                        cloudColor2 += Noise3D(colorPos2) * 0.08;
+                        float colorVar2 = Noise3D(colorPos2 * 0.4);
+                        float colorVarWeight2 = lerp(0.03, 0.01, saturate(density2 - 0.5));
+                        cloudColor2 *= lerp(1.0 - colorVarWeight2, 1.0 + colorVarWeight2, colorVar2);
                         // Power curve: edges wispy, cores opaque
                         alpha2 = pow(density2 * _Cloud2Opacity, 0.7);
                     }
@@ -768,9 +772,11 @@ Shader "Custom/DayNightSkybox"
                 float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, density);
                 float3 cloudColorResult = shadowBlend * (1.0 - _CloudDarkness * (1.0 - density) * 0.6);
                 // Subtle low-frequency color variation — breaks uniform tint across large cloud formations
-                float3 colorPos1 = normalize(dir) * _CloudShellRadius * _CloudScale * 0.0015
+                float3 colorPos1 = normalize(dir) * _CloudShellRadius * _CloudScale * 0.0006
                                  + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _CloudSpeed * _Time.y;
-                cloudColorResult += Noise3D(colorPos1) * 0.1;
+                float colorVar1 = Noise3D(colorPos1 * 0.4);
+                float colorVarWeight1 = lerp(0.03, 0.01, saturate(density - 0.5));
+                cloudColorResult *= lerp(1.0 - colorVarWeight1, 1.0 + colorVarWeight1, colorVar1);
                 // Power curve: edges wispy, cores opaque
                 float alpha1 = pow(density * heightMask * _CloudAlpha, 0.7);
 
