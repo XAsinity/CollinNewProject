@@ -136,27 +136,29 @@ public class DayNightVolumeController : MonoBehaviour
     /// </summary>
     private void SetDefaultCurves()
     {
-        // ── Bloom intensity: peaks at sunrise (0.25) and sunset (0.75), low at noon, faint at night
+        // ── Bloom intensity: subtle peaks at sunrise/sunset, very low at noon and night.
+        // Kept low so that cloud edges and skybox detail remain crisp.
         bloomIntensityCurve = new AnimationCurve(
-            new Keyframe(0.00f, 0.25f),
-            new Keyframe(0.20f, 0.50f),
-            new Keyframe(0.25f, 1.00f),  // sunrise peak
-            new Keyframe(0.35f, 0.45f),
-            new Keyframe(0.50f, 0.35f),  // noon — keep bloom subtle
-            new Keyframe(0.65f, 0.50f),
-            new Keyframe(0.75f, 1.00f),  // sunset peak
-            new Keyframe(0.85f, 0.35f),
-            new Keyframe(1.00f, 0.25f)
+            new Keyframe(0.00f, 0.08f),
+            new Keyframe(0.20f, 0.15f),
+            new Keyframe(0.25f, 0.40f),  // sunrise peak
+            new Keyframe(0.35f, 0.15f),
+            new Keyframe(0.50f, 0.10f),  // noon — keep bloom minimal
+            new Keyframe(0.65f, 0.15f),
+            new Keyframe(0.75f, 0.40f),  // sunset peak
+            new Keyframe(0.85f, 0.12f),
+            new Keyframe(1.00f, 0.08f)
         );
 
-        // ── Bloom threshold: lower at night so faint stars/moon can bloom gently
+        // ── Bloom threshold: high so only true bright sources (sun disc, moon) bloom.
+        // Raised significantly to prevent clouds and sky gradients from blooming.
         bloomThresholdCurve = new AnimationCurve(
-            new Keyframe(0.00f, 0.60f),  // night — lower threshold
-            new Keyframe(0.20f, 0.80f),
-            new Keyframe(0.30f, 1.10f),  // daytime — higher threshold
+            new Keyframe(0.00f, 0.90f),  // night — only the moon disc blooms
+            new Keyframe(0.20f, 0.85f),
+            new Keyframe(0.30f, 1.10f),  // daytime — only the sun disc blooms
             new Keyframe(0.70f, 1.10f),
-            new Keyframe(0.80f, 0.80f),
-            new Keyframe(1.00f, 0.60f)
+            new Keyframe(0.80f, 0.85f),
+            new Keyframe(1.00f, 0.90f)
         );
 
         // ── Post exposure: dark at night, neutral at noon, slight lift at sunrise/sunset
@@ -194,15 +196,16 @@ public class DayNightVolumeController : MonoBehaviour
             new Keyframe(1.00f, -30f)
         );
 
-        // ── Vignette: dark cinematic edges at night, nearly invisible at noon
+        // ── Vignette: slight cinematic edges at night, barely visible at noon.
+        // Reduced compared to previous values to avoid contributing to the enclosed/foggy feel.
         vignetteIntensityCurve = new AnimationCurve(
-            new Keyframe(0.00f, 0.40f), // midnight
-            new Keyframe(0.20f, 0.25f),
-            new Keyframe(0.30f, 0.12f),
-            new Keyframe(0.50f, 0.08f), // noon
-            new Keyframe(0.70f, 0.12f),
-            new Keyframe(0.80f, 0.25f),
-            new Keyframe(1.00f, 0.40f)
+            new Keyframe(0.00f, 0.30f), // midnight
+            new Keyframe(0.20f, 0.18f),
+            new Keyframe(0.30f, 0.07f),
+            new Keyframe(0.50f, 0.05f), // noon
+            new Keyframe(0.70f, 0.07f),
+            new Keyframe(0.80f, 0.18f),
+            new Keyframe(1.00f, 0.30f)
         );
 
         // ── Color filter gradient: cool blue at night, warm gold at sunrise/sunset, white at noon
