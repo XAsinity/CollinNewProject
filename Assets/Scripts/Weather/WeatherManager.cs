@@ -59,6 +59,16 @@ public class WeatherManager : MonoBehaviour
     private Vignette _vignette;
     private ColorAdjustments _colorAdjustments;
 
+    // Base cloud values cached from the material at Start so weather profiles
+    // can multiply them rather than override them entirely.
+    private float _baseCloudScale     = 5f;
+    private float _baseCloudSpeed     = 0.3f;
+    private float _baseCloudDensity   = 1f;
+    private float _baseCloudSharpness = 1.5f;
+
+    // Current lerped volume influence (controls _weatherVolume.weight)
+    private float _currentVolumeInfluence = 0f;
+
     // ─── LIFECYCLE ───────────────────────────────────────────────────
 
     void Awake()
@@ -78,6 +88,16 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial = dayNightCycle.skyboxMaterial;
         if (_skyboxMaterial == null)
             _skyboxMaterial = RenderSettings.skybox;
+
+        // Cache the material's authored base values so weather profiles can
+        // multiply them rather than overriding them with their own absolute values.
+        if (_skyboxMaterial != null)
+        {
+            _baseCloudScale     = _skyboxMaterial.GetFloat("_CloudScale");
+            _baseCloudSpeed     = _skyboxMaterial.GetFloat("_CloudSpeed");
+            _baseCloudDensity   = _skyboxMaterial.GetFloat("_CloudDensity");
+            _baseCloudSharpness = _skyboxMaterial.GetFloat("_CloudSharpness");
+        }
 
         SetupVolume();
 
@@ -107,6 +127,11 @@ public class WeatherManager : MonoBehaviour
             _transitionProgress = Mathf.Clamp01(_transitionProgress);
             ApplyWeatherLerp(_sourceWeather, _targetWeather, _transitionProgress);
         }
+
+        // Keep the volume weight in sync every frame (volume influence can
+        // change during transitions and the weight must reflect the current blend).
+        if (_weatherVolume != null)
+            _weatherVolume.weight = _currentVolumeInfluence;
 
         // Auto weather cycling
         if (autoWeather && weatherProfiles != null && weatherProfiles.Length > 1)
@@ -196,7 +221,12 @@ public class WeatherManager : MonoBehaviour
 
         _weatherVolume = volumeGO.AddComponent<Volume>();
         _weatherVolume.isGlobal = true;
-        _weatherVolume.priority = 1f; // Higher priority than the default scene volume (priority 0)
+        // Priority 1 — above DayNightVolumeController (priority 0).
+        // Weight is driven by the active profile's volumeInfluence:
+        //   0 = clear sky, DayNightVolumeController fully controls post-processing.
+        //   1 = severe weather, this volume fully overrides the TOD effects.
+        _weatherVolume.priority = 1f;
+        _weatherVolume.weight   = 0f;
 
         _runtimeProfile = ScriptableObject.CreateInstance<VolumeProfile>();
         _weatherVolume.profile = _runtimeProfile;
@@ -221,21 +251,32 @@ public class WeatherManager : MonoBehaviour
         if (_skyboxMaterial != null)
         {
             _skyboxMaterial.SetFloat("_CloudCoverage", cloudCoverage);
-            _skyboxMaterial.SetFloat("_CloudDensity",   Mathf.Lerp(from.cloudDensity,   to.cloudDensity,   t));
-            _skyboxMaterial.SetFloat("_CloudSharpness", Mathf.Lerp(from.cloudSharpness, to.cloudSharpness, t));
+
+            // Scale/Speed/Density/Sharpness use MULTIPLIERS on the material's base values
+            // so the designer's global settings remain the source of truth.
+            _skyboxMaterial.SetFloat("_CloudDensity",
+                _baseCloudDensity   * Mathf.Lerp(from.cloudDensityMultiplier,   to.cloudDensityMultiplier,   t));
+            _skyboxMaterial.SetFloat("_CloudSharpness",
+                _baseCloudSharpness * Mathf.Lerp(from.cloudSharpnessMultiplier, to.cloudSharpnessMultiplier, t));
+            _skyboxMaterial.SetFloat("_CloudScale",
+                _baseCloudScale     * Mathf.Lerp(from.cloudScaleMultiplier,     to.cloudScaleMultiplier,     t));
+
             _skyboxMaterial.SetFloat("_CloudBrightness", Mathf.Lerp(from.cloudBrightness, to.cloudBrightness, t));
-            _skyboxMaterial.SetFloat("_CloudDarkness",  Mathf.Lerp(from.cloudDarkness,  to.cloudDarkness,  t));
-            _skyboxMaterial.SetFloat("_CloudScale",     Mathf.Lerp(from.cloudScale,     to.cloudScale,     t));
-            _skyboxMaterial.SetFloat("_CloudSpeed",     Mathf.Lerp(from.cloudSpeed,     to.cloudSpeed,     t));
-            _skyboxMaterial.SetColor("_CloudColor",     Color.Lerp(from.cloudColor,     to.cloudColor,     t));
+            _skyboxMaterial.SetFloat("_CloudDarkness",   Mathf.Lerp(from.cloudDarkness,   to.cloudDarkness,   t));
+            _skyboxMaterial.SetColor("_CloudColor",      Color.Lerp(from.cloudColor,      to.cloudColor,      t));
             _skyboxMaterial.SetColor("_CloudShadowColor", Color.Lerp(from.cloudShadowColor, to.cloudShadowColor, t));
 
-            // Wind direction (normalised for cloud scrolling)
+            // Wind direction (magnitude = windSpeed for smooth interpolation;
+            // the shader normalises the vector itself, so only direction matters at render time)
             Vector3 windDir = Vector3.Lerp(
                 from.windDirection.normalized * from.windSpeed,
-                to.windDirection.normalized * to.windSpeed,
+                to.windDirection.normalized   * to.windSpeed,
                 t);
             _skyboxMaterial.SetVector("_CloudDirection", new Vector4(windDir.x, windDir.y, windDir.z, 0f));
+
+            // Cloud speed scalar for the shader's time-based scroll
+            _skyboxMaterial.SetFloat("_CloudSpeed",
+                _baseCloudSpeed * Mathf.Lerp(from.cloudSpeedMultiplier, to.cloudSpeedMultiplier, t));
 
             // Atmosphere overrides
             _skyboxMaterial.SetFloat("_DayAtmosphereStrength",
@@ -268,7 +309,11 @@ public class WeatherManager : MonoBehaviour
             dayNightCycle.SetFogColorOverride(fogTint, overrideFog);
         }
 
-        // ── Apply URP Volume overrides
+        // ── Volume influence: lerped value is applied as _weatherVolume.weight in Update()
+        // so the DayNightVolumeController (priority 0) can show through for clear weather.
+        _currentVolumeInfluence = Mathf.Lerp(from.volumeInfluence, to.volumeInfluence, t);
+
+        // ── Apply URP Volume overrides (these take effect when weight > 0)
         if (_bloom != null)
         {
             _bloom.intensity.Override(Mathf.Lerp(from.bloomIntensity, to.bloomIntensity, t));
