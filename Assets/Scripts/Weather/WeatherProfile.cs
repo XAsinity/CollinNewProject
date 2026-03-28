@@ -205,6 +205,10 @@ namespace Weather
         [Tooltip("Color for the shadowed underside of the high-altitude cloud layer")]
         public Color cloud2ShadowColor = new Color(0.50f, 0.52f, 0.58f, 1f);
 
+        [Range(0f, 1f)]
+        [Tooltip("Overall opacity of the high-altitude cloud layer (lower = more transparent, wispy)")]
+        public float cloud2Opacity = 0.5f;
+
         // ─── VOLUME INFLUENCE ────────────────────────────────────────
 
         [Header("Volume Influence")]
@@ -238,6 +242,7 @@ namespace Weather
             cloud2DensityMultiplier = 0.6f; cloud2SharpnessMultiplier = 0.7f; cloud2ScaleMultiplier = 1.2f; cloud2SpeedMultiplier = 1.1f;
             cloud2Brightness = 1.0f; cloud2Darkness = 0.30f;
             cloud2Color = new Color(0.95f, 0.95f, 0.98f, 1f); cloud2ShadowColor = new Color(0.45f, 0.45f, 0.50f, 1f);
+            cloud2Opacity = 0.30f;
             cloudEdgeSoftness = 0.25f; cloudVariation = 0.4f;
             volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
             stormRollSpeed = 0f;
@@ -265,6 +270,7 @@ namespace Weather
             cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.8f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 1.0f; cloud2Darkness = 0.35f;
             cloud2Color = new Color(0.90f, 0.90f, 0.93f, 1f); cloud2ShadowColor = new Color(0.40f, 0.40f, 0.45f, 1f);
+            cloud2Opacity = 0.35f;
             cloudEdgeSoftness = 0.22f; cloudVariation = 0.5f;
             volumeInfluence = 0.1f;
             stormRollSpeed = 0f;
@@ -292,6 +298,7 @@ namespace Weather
             cloud2DensityMultiplier = 0.8f; cloud2SharpnessMultiplier = 0.9f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.9f; cloud2Darkness = 0.40f;
             cloud2Color = new Color(0.82f, 0.82f, 0.86f, 1f); cloud2ShadowColor = new Color(0.32f, 0.32f, 0.38f, 1f);
+            cloud2Opacity = 0.40f;
             cloudEdgeSoftness = 0.18f; cloudVariation = 0.65f;
             volumeInfluence = 0.2f;
             stormRollSpeed = 0.1f;
@@ -319,6 +326,7 @@ namespace Weather
             cloud2DensityMultiplier = 0.9f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 0.95f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.8f; cloud2Darkness = 0.55f;
             cloud2Color = new Color(0.70f, 0.70f, 0.76f, 1f); cloud2ShadowColor = new Color(0.24f, 0.24f, 0.30f, 1f);
+            cloud2Opacity = 0.50f;
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.6f;
             volumeInfluence = 0.5f;
             stormRollSpeed = 0.2f;
@@ -346,6 +354,7 @@ namespace Weather
             cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.65f; cloud2Darkness = 0.65f;
             cloud2Color = new Color(0.55f, 0.56f, 0.62f, 1f); cloud2ShadowColor = new Color(0.18f, 0.18f, 0.24f, 1f);
+            cloud2Opacity = 0.60f;
             cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
             volumeInfluence = 0.75f;
             stormRollSpeed = 0.3f;
@@ -373,6 +382,7 @@ namespace Weather
             cloud2DensityMultiplier = 1.2f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.85f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.5f; cloud2Darkness = 0.75f;
             cloud2Color = new Color(0.45f, 0.47f, 0.54f, 1f); cloud2ShadowColor = new Color(0.14f, 0.14f, 0.18f, 1f);
+            cloud2Opacity = 0.65f;
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.35f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.4f;
@@ -400,6 +410,7 @@ namespace Weather
             cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.2f;
             cloud2Brightness = 0.55f; cloud2Darkness = 0.70f;
             cloud2Color = new Color(0.42f, 0.44f, 0.52f, 1f); cloud2ShadowColor = new Color(0.15f, 0.15f, 0.20f, 1f);
+            cloud2Opacity = 0.70f;
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.5f;
@@ -427,6 +438,7 @@ namespace Weather
             cloud2DensityMultiplier = 1.3f; cloud2SharpnessMultiplier = 1.2f; cloud2ScaleMultiplier = 0.85f; cloud2SpeedMultiplier = 1.5f;
             cloud2Brightness = 0.4f; cloud2Darkness = 0.80f;
             cloud2Color = new Color(0.30f, 0.32f, 0.40f, 1f); cloud2ShadowColor = new Color(0.10f, 0.10f, 0.14f, 1f);
+            cloud2Opacity = 0.80f;
             cloudEdgeSoftness = 0.08f; cloudVariation = 0.3f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
             stormRollSpeed = 1.0f;
@@ -455,6 +467,7 @@ namespace Weather
             cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.6f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 0.5f;
             cloud2Brightness = 0.85f; cloud2Darkness = 0.35f;
             cloud2Color = new Color(0.65f, 0.68f, 0.72f, 1f); cloud2ShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
+            cloud2Opacity = 0.40f;
             cloudEdgeSoftness = 0.3f; cloudVariation = 0.2f;
             volumeInfluence = 0.90f;
             stormRollSpeed = 0.1f;
@@ -482,6 +495,7 @@ namespace Weather
             cloud2DensityMultiplier = 1.0f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 0.8f;
             cloud2Brightness = 0.95f; cloud2Darkness = 0.25f;
             cloud2Color = new Color(0.72f, 0.74f, 0.78f, 1f); cloud2ShadowColor = new Color(0.30f, 0.30f, 0.35f, 1f);
+            cloud2Opacity = 0.50f;
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.5f;
             volumeInfluence = 0.6f;
             stormRollSpeed = 0.3f;
