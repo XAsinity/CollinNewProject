@@ -147,6 +147,10 @@ Shader "Custom/DayNightSkybox"
 
         [Header(Storm Transition)]
         _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
+
+        [Header(Cloud Shell Altitude)]
+        _CloudShellRadius ("Cloud Shell Radius", Range(500, 5000)) = 1500.0
+        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 5000)) = 2500.0
     }
 
     SubShader
@@ -290,6 +294,9 @@ Shader "Custom/DayNightSkybox"
 
             float4 _CloudDissolveOffset;
 
+            float _CloudShellRadius;
+            float _Cloud2ShellRadius;
+
             // ─── STRUCTS ─────────────────────────────────────────────
 
             struct appdata
@@ -399,69 +406,83 @@ Shader "Custom/DayNightSkybox"
                 return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
             }
 
-            // Project sky direction onto a virtual flat cloud plane at the given altitude.
-            // Eliminates spherical pole-stretching and gives natural horizon parallax.
-            float2 GetCloudPlaneUV(float3 worldDir, float altitude)
-            {
-                // Clamp y to avoid extreme UV values at the horizon
-                float t = altitude / max(worldDir.y, 0.05);
-                return worldDir.xz * t;
-            }
-
-            // Compute cloud density for one layer using conveyor-belt wind scrolling.
-            // baseUV        : flat-plane projected sky UV
+            // Compute cloud density for one layer using sphere-shell 3D noise sampling.
+            // worldDir      : normalized view ray from the camera
+            // shellRadius   : altitude of the cloud sphere (higher = more distant/spread clouds)
             // cloudScale    : noise frequency multiplier (higher = smaller clouds)
             // cloudSpeed    : base scroll speed
             // cloudDir      : wind direction vector (xz used; magnitude = windSpeed)
             // coverage      : 0=clear, 1=overcast
             // density/sharpness : edge-hardness controls
             // time          : _Time.y
-            // dissolveOff   : extra UV offset for storm-roll transitions
+            // dissolveOff   : 3D directional bias for storm roll-off transitions
             // edgeSoftness  : smoothstep edge width (low=hard edges, high=wispy)
             // variation     : wisp/detail blend weight (0=smooth blobs, 1=complex billowy)
-            // layerAltitude : Y coordinate in 3D noise space — separates layers volumetrically
-            float CalculateCloudLayer(float2 baseUV, float cloudScale, float cloudSpeed,
-                                      float4 cloudDir, float coverage, float density,
-                                      float sharpness, float time, float2 dissolveOff,
-                                      float edgeSoftness, float variation, float layerAltitude)
+            // layerSeed     : per-layer constant to separate noise regions (0=Layer1, 1=Layer2)
+            float CalculateCloudLayer(float3 worldDir, float shellRadius, float cloudScale,
+                                      float cloudSpeed, float4 cloudDir, float coverage,
+                                      float density, float sharpness, float time,
+                                      float3 dissolveOff, float edgeSoftness,
+                                      float variation, float layerSeed)
             {
-                // CONVEYOR BELT: continuously shift UVs so clouds physically scroll
-                float2 windOffset = cloudDir.xz * cloudSpeed * time;
-                float2 cloudUV = baseUV * cloudScale + windOffset + dissolveOff;
+                float3 dir = normalize(worldDir);
 
-                // Lift flat-plane UV into 3D noise space.
-                // layerAltitude sets the Y slice so Layer 1 and Layer 2 read from
-                // separate regions of the noise field and appear as distinct sky layers.
-                float2 scaledUV = cloudUV * 0.10;
+                // Below-horizon rays get no clouds
+                if (dir.y < 0.02) return 0.0;
 
-                // Pseudo-parallax thickness: sample FBM at two depth offsets far enough
-                // apart to create visible differences — thick cores stay opaque while thin
-                // areas vary between samples, giving an illusion of cloud volume.
-                float3 p3Near = float3(scaledUV.x, layerAltitude - 0.35, scaledUV.y);
-                float3 p3Far  = float3(scaledUV.x, layerAltitude + 0.35, scaledUV.y);
-                float baseShape = lerp(FBM(p3Near), FBM(p3Far), 0.5);
+                // Sphere-shell intersection: the 3D point where the view ray hits the cloud dome.
+                // No UV projection needed — the position IS the noise coordinate.
+                float3 shellPos = dir * shellRadius;
+
+                // Wind scrolling in 3D — clouds physically drift across the dome surface
+                float3 windOffset = float3(cloudDir.x, 0.0, cloudDir.z) * cloudSpeed * time;
+                float3 samplePos = shellPos * cloudScale * 0.001 + windOffset;
+
+                // Storm roll-off: shift the 3D sample point directionally.
+                // Clouds appear to roll toward the horizon in the offset direction
+                // rather than fading/dissolving uniformly in place.
+                samplePos += dissolveOff;
+
+                // Layer separation: offset per-layer so Layer 1 and Layer 2 read from
+                // entirely different regions of the noise field and look distinct.
+                samplePos += float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
+
+                // Pseudo-parallax: sample at two slightly different shell radii and blend.
+                // 0.35 weight toward the inner sample means the outer surface dominates (0.65),
+                // giving a natural top-of-cloud look while thin edges still vary for depth.
+                float3 sampleInner = dir * (shellRadius * 0.97) * cloudScale * 0.001
+                                   + windOffset + dissolveOff
+                                   + float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
+                float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.35);
 
                 // Mid-frequency detail — adds billowy texture within cloud masses
-                float2 detailScaled = (cloudUV * 0.3 + windOffset * 0.15) * 0.8;
-                float3 p3Detail = float3(detailScaled.x + 5.3, layerAltitude + 1.7, detailScaled.y + 3.1);
-                float detail = FBMFine(p3Detail);
+                float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
+                float detail = FBMFine(detailPos);
 
-                // High-frequency wisps — thin edges, subtle variation
-                float2 wispScaled = cloudUV * 0.7 + windOffset * 0.3;
-                float3 p3Wisp = float3(wispScaled.x + 17.5, layerAltitude + 3.2, wispScaled.y + 11.1);
-                float wisps = FBM(p3Wisp);
+                // High-frequency wisps — thin edges and subtle wisp variation
+                float3 wispPos = samplePos * 5.0 + float3(17.5, 3.2, 11.1);
+                float wisps = FBM(wispPos);
 
                 // Blend: base shape controls WHERE, detail/wisps add billow character
-                // Weights sum to 1.0: 0.5 (base) + 0.35 (detail) + 0.15 (wisps)
-                float cloudNoise = lerp(baseShape, baseShape * 0.5 + detail * 0.35 + wisps * 0.15, saturate(variation));
+                float wispW = lerp(0.05, 0.15, saturate(variation));
+                float cloudNoise = baseShape * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
 
                 // Coverage threshold: coverage=0 → no clouds, coverage=1 → full overcast
                 float cloudMask = cloudNoise - (1.0 - coverage);
                 cloudMask = saturate(cloudMask * sharpness * density);
 
-                // edgeSoftness controls smoothstep width: low=hard edges, high=wispy margins
-                float edgeWidth = max(edgeSoftness * 1.5, 0.15);
+                // edgeSoftness controls smoothstep width: low=hard edges, high=wispy margins.
+                // Multiplier is 2.0 (vs the old 1.5) because sphere-shell sampling naturally
+                // compresses clouds near the horizon, so edges need the wider ramp to avoid
+                // hard boundaries where the horizonFade kicks in.
+                float edgeWidth = max(edgeSoftness * 2.0, 0.15);
                 cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
+
+                // Horizon fade: shallow-angle rays hit the shell far away, so clouds near the
+                // horizon naturally thin out — no explicit UV correction needed.
+                float horizonFade = smoothstep(0.02, 0.25, dir.y);
+                cloudMask *= horizonFade;
+
                 return cloudMask;
             }
 
@@ -664,18 +685,15 @@ Shader "Custom/DayNightSkybox"
                 float heightMask = smoothstep(-horizonPush, _CloudHeight + 0.3, dir.y);
                 if (heightMask < 0.001) return float3(0, 0, 0);
 
-                // ── Flat-plane UV projection eliminates spherical pole-stretching.
-                // Projects the sky direction onto a virtual horizontal cloud plane at altitude 1,
-                // giving natural horizon parallax (distant clouds compress toward the horizon).
-                float2 cloudPlaneUV = GetCloudPlaneUV(dir, 1.0);
-
-                // ── Layer 1 — primary cloud density via conveyor-belt 3D FBM
-                float2 dissolveOff1 = float2(_CloudDissolveOffset.x, _CloudDissolveOffset.y);
+                // ── Layer 1 — sphere-shell 3D FBM (primary cloud layer)
+                // _CloudDissolveOffset.xyz is a 3D directional bias: when a storm clears,
+                // clouds roll toward the horizon in that direction rather than fading in place.
+                float3 dissolveOff1 = _CloudDissolveOffset.xyz;
                 float density = CalculateCloudLayer(
-                    cloudPlaneUV, _CloudScale, _CloudSpeed,
+                    dir, _CloudShellRadius, _CloudScale, _CloudSpeed,
                     _CloudDirection, _CloudCoverage, _CloudDensity,
                     _CloudSharpness, _Time.y, dissolveOff1,
-                    _CloudEdgeSoftness, _CloudVariation, 0.5);
+                    _CloudEdgeSoftness, _CloudVariation, 0.0);
                 density *= heightMask;
 
                 // ── Cloud Layer 2 — high-altitude weather-driven clouds (_Cloud2* properties)
@@ -685,18 +703,17 @@ Shader "Custom/DayNightSkybox"
 
                 if (_Cloud2Coverage > 0.001)
                 {
-                    // Layer 2 uses a higher altitude plane — creates natural parallax separation
                     float heightMask2 = smoothstep(-horizonPush * 0.5, _CloudLayer2Height + 0.3, dir.y);
                     if (heightMask2 > 0.001)
                     {
-                        float2 cloudPlaneUV2 = GetCloudPlaneUV(dir, 1.5);
-                        // Higher clouds drift more slowly during transitions
-                        float2 dissolveOff2 = float2(_CloudDissolveOffset.x * 0.5, _CloudDissolveOffset.y * 0.5);
+                        // Higher shell radius = more distant appearance; dissolve bias halved
+                        // so upper layer transitions more slowly than lower layer
+                        float3 dissolveOff2 = _CloudDissolveOffset.xyz * 0.5;
                         density2 = CalculateCloudLayer(
-                            cloudPlaneUV2, _Cloud2Scale, _Cloud2Speed,
+                            dir, _Cloud2ShellRadius, _Cloud2Scale, _Cloud2Speed,
                             _CloudDirection, _Cloud2Coverage, _Cloud2Density,
                             _Cloud2Sharpness, _Time.y, dissolveOff2,
-                            _CloudEdgeSoftness * 1.5, 0.5, 1.2);
+                            _CloudEdgeSoftness * 1.5, 0.5, 1.0);
                         density2 *= heightMask2;
 
                         // Layer 2 color — distinct brightness/darkness conveys altitude and mass
@@ -707,10 +724,10 @@ Shader "Custom/DayNightSkybox"
                         float3 edgeBright2 = litColor2 * lerp(1.2, 1.0, density2);
                         float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, edgeBright2, density2);
                         cloudColor2 = shadowBlend2 * (1.0 - _Cloud2Darkness * (1.0 - density2) * 0.6);
-                        // Subtle low-frequency color variation — breaks uniform color across the cloud mass
-                        float2 colorVariUV2 = cloudPlaneUV2 * _Cloud2Scale * 0.15
-                                            + _CloudDirection.xz * _Cloud2Speed * _Time.y;
-                        cloudColor2 += ValueNoise(colorVariUV2) * 0.08;
+                        // Subtle low-frequency color variation using 3D noise on the shell surface
+                        float3 colorPos2 = normalize(dir) * _Cloud2ShellRadius * _Cloud2Scale * 0.0015
+                                         + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _Cloud2Speed * _Time.y;
+                        cloudColor2 += Noise3D(colorPos2) * 0.08;
                         // Power curve: edges wispy, cores opaque
                         alpha2 = pow(density2 * _Cloud2Opacity, 0.7);
                     }
@@ -731,9 +748,9 @@ Shader "Custom/DayNightSkybox"
                 float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, density);
                 float3 cloudColorResult = shadowBlend * (1.0 - _CloudDarkness * (1.0 - density) * 0.6);
                 // Subtle low-frequency color variation — breaks uniform tint across large cloud formations
-                float2 colorVariUV = cloudPlaneUV * _CloudScale * 0.15
-                                   + _CloudDirection.xz * _CloudSpeed * _Time.y;
-                cloudColorResult += ValueNoise(colorVariUV) * 0.1;
+                float3 colorPos1 = normalize(dir) * _CloudShellRadius * _CloudScale * 0.0015
+                                 + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _CloudSpeed * _Time.y;
+                cloudColorResult += Noise3D(colorPos1) * 0.1;
                 // Power curve: edges wispy, cores opaque
                 float alpha1 = pow(density * heightMask * _CloudAlpha, 0.7);
 
