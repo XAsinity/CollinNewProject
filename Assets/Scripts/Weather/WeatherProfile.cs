@@ -47,6 +47,14 @@ namespace Weather
         [Tooltip("Multiplier on the material's base cloud speed (1 = no change, 2 = twice as fast)")]
         public float cloudSpeedMultiplier = 1f;
 
+        [Range(0f, 0.5f)]
+        [Tooltip("How gradually clouds fade at their edges (low = hard edges, high = soft/wispy edges)")]
+        public float cloudEdgeSoftness = 0.18f;
+
+        [Range(0f, 1f)]
+        [Tooltip("How much turbulence and variation shape the clouds (0 = smooth blobs, 1 = complex billowy cumulus)")]
+        public float cloudVariation = 0.5f;
+
         // ─── FOG SETTINGS ────────────────────────────────────────────
 
         [Header("Fog Settings")]
@@ -199,6 +207,7 @@ namespace Weather
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 1f; starVisibilityMultiplier = 1f;
             horizonHazeStrength = 0.15f; horizonHazeHeight = 0.1f; horizonHazeFalloff = 4f;
             cloudLayer2Coverage = 0.08f; cloudLayer2Scale = 10f; cloudLayer2Speed = 0.3f; cloudLayer2Opacity = 0.15f; cloudLayer2Height = 0.1f;
+            cloudEdgeSoftness = 0.25f; cloudVariation = 0.4f;
             volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
         }
 
@@ -221,6 +230,7 @@ namespace Weather
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 0.9f; starVisibilityMultiplier = 0.9f;
             horizonHazeStrength = 0.2f; horizonHazeHeight = 0.12f; horizonHazeFalloff = 3.5f;
             cloudLayer2Coverage = 0.15f; cloudLayer2Scale = 9f; cloudLayer2Speed = 0.4f; cloudLayer2Opacity = 0.2f; cloudLayer2Height = 0.1f;
+            cloudEdgeSoftness = 0.22f; cloudVariation = 0.5f;
             volumeInfluence = 0.1f;
         }
 
@@ -243,6 +253,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.9f; horizonGlowMultiplier = 0.8f; starVisibilityMultiplier = 0.6f;
             horizonHazeStrength = 0.3f; horizonHazeHeight = 0.15f; horizonHazeFalloff = 3f;
             cloudLayer2Coverage = 0.25f; cloudLayer2Scale = 8f; cloudLayer2Speed = 0.5f; cloudLayer2Opacity = 0.3f; cloudLayer2Height = 0.1f;
+            cloudEdgeSoftness = 0.18f; cloudVariation = 0.65f;
             volumeInfluence = 0.2f;
         }
 
@@ -265,6 +276,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.7f; horizonGlowMultiplier = 0.5f; starVisibilityMultiplier = 0.2f;
             horizonHazeStrength = 0.45f; horizonHazeHeight = 0.18f; horizonHazeFalloff = 2.5f;
             cloudLayer2Coverage = 0.4f; cloudLayer2Scale = 7f; cloudLayer2Speed = 0.6f; cloudLayer2Opacity = 0.4f; cloudLayer2Height = 0.15f;
+            cloudEdgeSoftness = 0.15f; cloudVariation = 0.6f;
             volumeInfluence = 0.5f;
         }
 
@@ -287,6 +299,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.4f; horizonGlowMultiplier = 0.2f; starVisibilityMultiplier = 0.05f;
             horizonHazeStrength = 0.6f; horizonHazeHeight = 0.22f; horizonHazeFalloff = 2f;
             cloudLayer2Coverage = 0.55f; cloudLayer2Scale = 6f; cloudLayer2Speed = 0.7f; cloudLayer2Opacity = 0.5f; cloudLayer2Height = 0.15f;
+            cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
             volumeInfluence = 0.75f;
         }
 
@@ -309,6 +322,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.25f; horizonGlowMultiplier = 0.1f; starVisibilityMultiplier = 0.0f;
             horizonHazeStrength = 0.7f; horizonHazeHeight = 0.25f; horizonHazeFalloff = 1.8f;
             cloudLayer2Coverage = 0.65f; cloudLayer2Scale = 5.5f; cloudLayer2Speed = 0.8f; cloudLayer2Opacity = 0.55f; cloudLayer2Height = 0.15f;
+            cloudEdgeSoftness = 0.1f; cloudVariation = 0.35f;
             volumeInfluence = 0.85f;
         }
 
@@ -331,6 +345,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.5f; horizonGlowMultiplier = 0.15f; starVisibilityMultiplier = 0.0f;
             horizonHazeStrength = 0.55f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.2f;
             cloudLayer2Coverage = 0.45f; cloudLayer2Scale = 6.5f; cloudLayer2Speed = 0.9f; cloudLayer2Opacity = 0.45f; cloudLayer2Height = 0.1f;
+            cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
             volumeInfluence = 0.85f;
         }
 
@@ -353,6 +368,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.15f; horizonGlowMultiplier = 0.05f; starVisibilityMultiplier = 0.0f;
             horizonHazeStrength = 0.8f; horizonHazeHeight = 0.3f; horizonHazeFalloff = 1.5f;
             cloudLayer2Coverage = 0.75f; cloudLayer2Scale = 5f; cloudLayer2Speed = 1.2f; cloudLayer2Opacity = 0.6f; cloudLayer2Height = 0.1f;
+            cloudEdgeSoftness = 0.08f; cloudVariation = 0.3f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
         }
 
@@ -376,6 +392,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.3f; starVisibilityMultiplier = 0.0f;
             horizonHazeStrength = 0.9f; horizonHazeHeight = 0.35f; horizonHazeFalloff = 1f;
             cloudLayer2Coverage = 0.1f; cloudLayer2Scale = 12f; cloudLayer2Speed = 0.2f; cloudLayer2Opacity = 0.15f; cloudLayer2Height = 0.15f;
+            cloudEdgeSoftness = 0.3f; cloudVariation = 0.2f;
             volumeInfluence = 0.90f;
         }
 
@@ -398,6 +415,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.4f; starVisibilityMultiplier = 0.1f;
             horizonHazeStrength = 0.5f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.5f;
             cloudLayer2Coverage = 0.35f; cloudLayer2Scale = 7.5f; cloudLayer2Speed = 0.4f; cloudLayer2Opacity = 0.35f; cloudLayer2Height = 0.1f;
+            cloudEdgeSoftness = 0.15f; cloudVariation = 0.5f;
             volumeInfluence = 0.6f;
         }
     }

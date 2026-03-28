@@ -266,6 +266,11 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetColor("_CloudColor",      Color.Lerp(from.cloudColor,      to.cloudColor,      t));
             _skyboxMaterial.SetColor("_CloudShadowColor", Color.Lerp(from.cloudShadowColor, to.cloudShadowColor, t));
 
+            _skyboxMaterial.SetFloat("_CloudEdgeSoftness",
+                Mathf.Lerp(from.cloudEdgeSoftness, to.cloudEdgeSoftness, t));
+            _skyboxMaterial.SetFloat("_CloudVariation",
+                Mathf.Lerp(from.cloudVariation, to.cloudVariation, t));
+
             // Wind direction (magnitude = windSpeed for smooth interpolation;
             // the shader normalises the vector itself, so only direction matters at render time)
             Vector3 windDir = Vector3.Lerp(

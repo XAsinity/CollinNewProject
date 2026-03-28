@@ -60,6 +60,8 @@ Shader "Custom/DayNightSkybox"
         _CloudColor ("Cloud Color Tint", Color) = (1, 1, 1, 1)
         _CloudShadowColor ("Cloud Shadow Color", Color) = (0.35, 0.35, 0.40, 1)
         _CloudHorizonCoverage ("Cloud Horizon Coverage", Range(0, 1)) = 0.8
+        _CloudEdgeSoftness ("Cloud Edge Softness", Range(0.0, 0.5)) = 0.2
+        _CloudVariation ("Cloud Variation/Turbulence", Range(0, 1)) = 0.5
 
         [Header(Procedural Stars)]
         _EnableStars ("Enable Procedural Stars", Float) = 1
@@ -196,6 +198,8 @@ Shader "Custom/DayNightSkybox"
             float4 _CloudColor;
             float4 _CloudShadowColor;
             float _CloudHorizonCoverage;
+            float _CloudEdgeSoftness;
+            float _CloudVariation;
 
             float _EnableStars;
             float _StarDensity;
@@ -536,8 +540,6 @@ Shader "Custom/DayNightSkybox"
                 cloudAlpha = 0.0;
 
                 // How far below the horizon clouds extend.
-                // At full coverage + full horizonCoverage the clouds wrap the entire sky sphere.
-                // At zero coverage horizonPush = 0, so the upper-hemisphere-only default is preserved.
                 float horizonPush = _CloudHorizonCoverage * saturate(_CloudCoverage * 2.0);
                 float heightMask = smoothstep(-horizonPush, _CloudHeight + 0.3, dir.y);
                 if (heightMask < 0.001) return float3(0, 0, 0);
@@ -547,19 +549,54 @@ Shader "Custom/DayNightSkybox"
                                     * _Time.y * _CloudSpeed;
                 float3 cloudPos = dir * _CloudScale + windOffset;
 
-                // FBM-based cloud shape
-                float cloud = FBM(cloudPos);
-                cloud = cloud * 0.5 + 0.5;
+                // ── Large-scale grouping mask: very low frequency noise that creates distinct
+                // "cloud zones" with clear sky between them instead of uniform coverage everywhere.
+                float3 maskPos = cloudPos * 0.28;
+                float gMask = FBM(maskPos) * 0.5 + 0.5;
 
-                // Coverage threshold and sharpness
-                float coverage = 1.0 - _CloudCoverage;
-                cloud = saturate((cloud - coverage) * _CloudSharpness * _CloudDensity);
+                // ── Primary cloud shape: low-frequency FBM for large base formations.
+                // Half scale (0.5×) gives 2× larger cloud shapes than the raw cloudPos scale.
+                float3 pb = cloudPos * 0.5;
+                float base = 0.0;
+                base += 0.50000 * Noise3D(pb); pb *= 2.0;
+                base += 0.25000 * Noise3D(pb); pb *= 2.1;
+                base += 0.12500 * Noise3D(pb); pb *= 2.2;
+                base += 0.06250 * Noise3D(pb); pb *= 2.3;
+                base += 0.03125 * Noise3D(pb);
+                base = base * 0.5 + 0.5; // remap to [0, 1]
 
-                // Add a finer detail layer for variety
-                float detail = FBMFine(cloudPos * 1.5 + 5.0) * 0.3;
-                cloud = saturate(cloud + detail * 0.2);
+                // ── Ridged/billowing transform: converts smooth FBM blobs into rounded bumpy
+                // cloud puffs by creating peaks where the FBM passes through its midpoint.
+                // This replaces the uniform "spiderweb" pattern with isolated cumulus-style shapes.
+                float ridged = 1.0 - abs(base * 2.0 - 1.0);
+                ridged = pow(ridged, 1.2); // mild sharpening for more defined cloud cores
 
-                // ── Cloud Layer 2: high-altitude wispy clouds at a different scale/speed
+                // ── Turbulence detail: higher-frequency ridged noise for billowing cauliflower edges.
+                float3 pt = cloudPos * 0.85 + float3(5.17, 2.73, 8.41);
+                float turb = 0.0;
+                turb += 0.50000 * (1.0 - abs(Noise3D(pt) * 2.0 - 1.0)); pt *= 2.1;
+                turb += 0.25000 * (1.0 - abs(Noise3D(pt) * 2.0 - 1.0)); pt *= 2.2;
+                turb += 0.12500 * (1.0 - abs(Noise3D(pt) * 2.0 - 1.0)); pt *= 2.3;
+                turb += 0.06250 * (1.0 - abs(Noise3D(pt) * 2.0 - 1.0));
+                turb /= 0.9375; // normalize to [0, 1]
+
+                // Mix ridged base with turbulence — more variation yields complex billowy shapes.
+                float rawNoise = lerp(ridged, ridged * 0.6 + turb * 0.4, _CloudVariation);
+
+                // ── Density remapping with threshold modulated by the grouping mask.
+                // In cloud-zone areas (gMask high) the threshold is lowered so clouds form more easily.
+                // In clear-sky areas (gMask low) the threshold is raised so almost no clouds form.
+                // This creates realistic large clear gaps between cloud groups.
+                // The 0.5 centres the gMask range and 0.4 controls the zone-bias strength:
+                //   cloud zone (gMask≈1): threshold shifts -0.2 → easier to form clouds
+                //   clear zone  (gMask≈0): threshold shifts +0.2 → harder to form clouds
+                float baseThreshold = 1.0 - _CloudCoverage;
+                float adjustedThreshold = saturate(baseThreshold + (0.5 - gMask) * 0.4);
+                float softness = max(_CloudEdgeSoftness, 0.01); // guard against zero-width smoothstep
+                float density = smoothstep(adjustedThreshold, adjustedThreshold + softness, rawNoise);
+                density = saturate(density * _CloudSharpness * _CloudDensity);
+
+                // ── Cloud Layer 2: high-altitude wispy clouds at a different scale/speed.
                 if (_CloudLayer2Coverage > 0.001)
                 {
                     float heightMask2 = smoothstep(-horizonPush * 0.5, _CloudLayer2Height + 0.3, dir.y);
@@ -567,45 +604,58 @@ Shader "Custom/DayNightSkybox"
                     {
                         float3 windOffset2 = normalize(_CloudDirection.xyz + float3(0.001, 0, 0.001))
                                              * _Time.y * _CloudLayer2Speed;
-                        // Offset seed so layer 2 is a completely different pattern from layer 1
+                        // Large seed offset ensures layer 2 is a completely different pattern.
                         float3 cloudPos2 = dir * _CloudLayer2Scale + windOffset2 + float3(31.4, 17.2, 42.8);
 
-                        float cloud2 = FBM(cloudPos2);
-                        cloud2 = cloud2 * 0.5 + 0.5;
+                        // Layer 2 uses the same ridged approach but no grouping mask — upper cirrus
+                        // can be more evenly spread across the sky.
+                        float3 pb2 = cloudPos2 * 0.5;
+                        float base2 = 0.0;
+                        base2 += 0.50000 * Noise3D(pb2); pb2 *= 2.0;
+                        base2 += 0.25000 * Noise3D(pb2); pb2 *= 2.1;
+                        base2 += 0.12500 * Noise3D(pb2); pb2 *= 2.2;
+                        base2 += 0.06250 * Noise3D(pb2);
+                        base2 = base2 * 0.5 + 0.5;
+                        float ridged2 = 1.0 - abs(base2 * 2.0 - 1.0);
+                        ridged2 = pow(ridged2, 1.5); // sharper — wispy cirrus has harder edges
 
-                        float coverage2 = 1.0 - _CloudLayer2Coverage;
-                        // Slightly softer edges for upper wispy layer
-                        cloud2 = saturate((cloud2 - coverage2) * _CloudSharpness * 0.7);
-                        cloud2 *= heightMask2 * _CloudLayer2Opacity;
+                        float threshold2 = 1.0 - _CloudLayer2Coverage;
+                        float density2 = smoothstep(threshold2, threshold2 + softness * 1.2, ridged2);
+                        density2 = saturate(density2 * _CloudSharpness * 0.7);
+                        density2 *= heightMask2 * _CloudLayer2Opacity;
 
-                        // max() blending: where both layers overlap, the denser one wins,
+                        // max() blending: where both layers overlap the denser one wins,
                         // creating natural depth as thin cirrus crosses over lower cumulus.
-                        cloud = max(cloud, cloud2);
+                        density = max(density, density2);
                     }
                 }
 
-                if (cloud < 0.001)
+                if (density < 0.001)
                 {
                     return float3(0, 0, 0);
                 }
 
-                // Time-based cloud color
+                // ── Time-based cloud color
                 float3 timeColor = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
                 timeColor = lerp(timeColor, _CloudSunsetColor.rgb, sunsetFactor * 0.8);
 
                 // Apply weather color tint (multiplicative)
                 float3 tintedColor = timeColor * _CloudColor.rgb;
 
-                // Shadow effect: undersides of clouds are darker
-                // Thick parts (cloud close to 1) are bright, thin edges use shadow color
-                float3 litColor   = tintedColor * _CloudBrightness;
-                float3 shadowBlend = lerp(_CloudShadowColor.rgb, litColor, cloud);
+                // ── Density-driven brightness: thin edges appear bright/backlit (silver lining),
+                // dense cores use the normal cloud color, thick undersides darken with shadow color.
+                float3 litColor = tintedColor * _CloudBrightness;
+                // Edge brightening: low-density pixels get a 35% highlight boost (backlit silver-lining
+                // effect); this boost fades to zero as density approaches full opacity at the core.
+                float3 edgeBright = litColor * lerp(1.35, 1.0, density);
+                // Shadow blend: dense cores pull toward the shadow color for underside darkening
+                float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, density);
+                // 0.6 factor (vs old 0.5) gives more aggressive underside darkening on thick clouds,
+                // which better separates wispy edges from heavy storm-cloud bases.
+                float3 cloudColorResult = shadowBlend * (1.0 - _CloudDarkness * (1.0 - density) * 0.6);
 
-                // Additional darkening for overcast/stormy weather
-                float3 cloudColor = shadowBlend * (1.0 - _CloudDarkness * (1.0 - cloud) * 0.5);
-
-                cloudAlpha = cloud * heightMask * _CloudAlpha;
-                return cloudColor;
+                cloudAlpha = density * heightMask * _CloudAlpha;
+                return cloudColorResult;
             }
 
             // ─── SUN DISC ────────────────────────────────────────────
