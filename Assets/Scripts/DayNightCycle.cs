@@ -80,15 +80,6 @@ public class DayNightCycle : MonoBehaviour
 
         if (moonLight != null)
             skyboxMaterial.SetVector("_MoonDirection", -moonLight.transform.forward);
-
-        // Tint the horizon haze with the current sun/sky color so it changes
-        // naturally with time of day (warm at sunrise/sunset, cool blue at noon, dim at night).
-        // WeatherManager will override this color during active weather transitions.
-        if (sunLight != null && skyboxMaterial.HasProperty("_HorizonHazeColor"))
-        {
-            Color hazeTimeTint = sunLightColor.Evaluate(currentTimeOfDay);
-            skyboxMaterial.SetColor("_HorizonHazeColor", hazeTimeTint);
-        }
     }
 
     void UpdateSunLight()
