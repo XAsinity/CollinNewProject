@@ -137,6 +137,41 @@ namespace Weather
         [Tooltip("Multiplier for procedural star brightness (reduce when cloudy)")]
         public float starVisibilityMultiplier = 1f;
 
+        // ─── HORIZON HAZE ────────────────────────────────────────────
+
+        [Header("Horizon Haze")]
+        [Tooltip("Intensity of the haze band at the horizon line (0 = off, 1 = full)")]
+        public float horizonHazeStrength = 0.3f;
+
+        [Tooltip("Base tint color of the horizon haze, blended with time-of-day sun color")]
+        public Color horizonHazeColor = Color.white;
+
+        [Tooltip("How high the haze extends upward into the sky (0.01 = very low band, 1.0 = full sky)")]
+        public float horizonHazeHeight = 0.15f;
+
+        [Tooltip("Sharpness of the haze fade edge (low value = soft gradient, high = hard band)")]
+        public float horizonHazeFalloff = 3f;
+
+        // ─── CLOUD LAYER 2 ───────────────────────────────────────────
+
+        [Header("Cloud Layer 2")]
+        [Range(0f, 1f)]
+        [Tooltip("Coverage of the secondary high-altitude cloud layer (0 = off)")]
+        public float cloudLayer2Coverage = 0f;
+
+        [Tooltip("Scale of the secondary cloud layer — larger values produce thinner wispy clouds")]
+        public float cloudLayer2Scale = 8f;
+
+        [Tooltip("Scroll speed of the secondary cloud layer — upper layers can move at a different rate")]
+        public float cloudLayer2Speed = 0.5f;
+
+        [Range(0f, 1f)]
+        [Tooltip("Opacity/visibility of the secondary cloud layer")]
+        public float cloudLayer2Opacity = 0.3f;
+
+        [Tooltip("Vertical height bias for the secondary cloud layer")]
+        public float cloudLayer2Height = 0.1f;
+
         // ─── VOLUME INFLUENCE ────────────────────────────────────────
 
         [Header("Volume Influence")]
@@ -165,6 +200,8 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.5f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 1f; starVisibilityMultiplier = 1f;
+            horizonHazeStrength = 0.2f; horizonHazeColor = Color.white; horizonHazeHeight = 0.15f; horizonHazeFalloff = 3f;
+            cloudLayer2Coverage = 0.05f; cloudLayer2Scale = 8f; cloudLayer2Speed = 0.5f; cloudLayer2Opacity = 0.15f; cloudLayer2Height = 0.1f;
             volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
         }
 
@@ -185,6 +222,8 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.8f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 0.9f; starVisibilityMultiplier = 0.9f;
+            horizonHazeStrength = 0.25f; horizonHazeColor = Color.white; horizonHazeHeight = 0.15f; horizonHazeFalloff = 3f;
+            cloudLayer2Coverage = 0.1f; cloudLayer2Scale = 8f; cloudLayer2Speed = 0.5f; cloudLayer2Opacity = 0.2f; cloudLayer2Height = 0.1f;
             volumeInfluence = 0.1f;
         }
 
@@ -205,6 +244,8 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.9f; horizonGlowMultiplier = 0.8f; starVisibilityMultiplier = 0.6f;
+            horizonHazeStrength = 0.35f; horizonHazeColor = Color.white; horizonHazeHeight = 0.15f; horizonHazeFalloff = 3f;
+            cloudLayer2Coverage = 0.2f; cloudLayer2Scale = 8f; cloudLayer2Speed = 0.5f; cloudLayer2Opacity = 0.3f; cloudLayer2Height = 0.1f;
             volumeInfluence = 0.2f;
         }
 
@@ -225,6 +266,8 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.2f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.7f; horizonGlowMultiplier = 0.5f; starVisibilityMultiplier = 0.2f;
+            horizonHazeStrength = 0.45f; horizonHazeColor = new Color(0.85f, 0.87f, 0.92f, 1f); horizonHazeHeight = 0.18f; horizonHazeFalloff = 2.5f;
+            cloudLayer2Coverage = 0.35f; cloudLayer2Scale = 8f; cloudLayer2Speed = 0.6f; cloudLayer2Opacity = 0.4f; cloudLayer2Height = 0.15f;
             volumeInfluence = 0.5f;
         }
 
@@ -245,6 +288,8 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.4f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.4f; horizonGlowMultiplier = 0.2f; starVisibilityMultiplier = 0.05f;
+            horizonHazeStrength = 0.6f; horizonHazeColor = new Color(0.72f, 0.75f, 0.82f, 1f); horizonHazeHeight = 0.2f; horizonHazeFalloff = 2f;
+            cloudLayer2Coverage = 0.5f; cloudLayer2Scale = 7f; cloudLayer2Speed = 0.7f; cloudLayer2Opacity = 0.5f; cloudLayer2Height = 0.15f;
             volumeInfluence = 0.75f;
         }
 
@@ -265,6 +310,8 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.6f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.25f; horizonGlowMultiplier = 0.1f; starVisibilityMultiplier = 0.0f;
+            horizonHazeStrength = 0.7f; horizonHazeColor = new Color(0.62f, 0.65f, 0.72f, 1f); horizonHazeHeight = 0.22f; horizonHazeFalloff = 2f;
+            cloudLayer2Coverage = 0.6f; cloudLayer2Scale = 7f; cloudLayer2Speed = 0.8f; cloudLayer2Opacity = 0.55f; cloudLayer2Height = 0.15f;
             volumeInfluence = 0.85f;
         }
 
@@ -285,6 +332,8 @@ namespace Weather
             windDirection = new Vector3(1f, 0f, 0.3f); windSpeed = 1.5f;
             precipitationType = PrecipitationType.Rain; precipitationIntensity = 0.4f;
             dayAtmosphereMultiplier = 0.5f; horizonGlowMultiplier = 0.15f; starVisibilityMultiplier = 0.0f;
+            horizonHazeStrength = 0.55f; horizonHazeColor = new Color(0.55f, 0.60f, 0.68f, 1f); horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.5f;
+            cloudLayer2Coverage = 0.4f; cloudLayer2Scale = 7f; cloudLayer2Speed = 0.9f; cloudLayer2Opacity = 0.45f; cloudLayer2Height = 0.1f;
             volumeInfluence = 0.85f;
         }
 
@@ -305,6 +354,8 @@ namespace Weather
             windDirection = new Vector3(1f, 0f, 0.5f); windSpeed = 2.5f;
             precipitationType = PrecipitationType.Rain; precipitationIntensity = 1.0f;
             dayAtmosphereMultiplier = 0.15f; horizonGlowMultiplier = 0.05f; starVisibilityMultiplier = 0.0f;
+            horizonHazeStrength = 0.8f; horizonHazeColor = new Color(0.35f, 0.38f, 0.45f, 1f); horizonHazeHeight = 0.25f; horizonHazeFalloff = 1.5f;
+            cloudLayer2Coverage = 0.7f; cloudLayer2Scale = 6f; cloudLayer2Speed = 1.2f; cloudLayer2Opacity = 0.6f; cloudLayer2Height = 0.1f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
         }
 
@@ -326,6 +377,8 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.2f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.3f; starVisibilityMultiplier = 0.0f;
+            horizonHazeStrength = 0.9f; horizonHazeColor = new Color(0.75f, 0.78f, 0.82f, 1f); horizonHazeHeight = 0.3f; horizonHazeFalloff = 1f;
+            cloudLayer2Coverage = 0.2f; cloudLayer2Scale = 9f; cloudLayer2Speed = 0.2f; cloudLayer2Opacity = 0.25f; cloudLayer2Height = 0.15f;
             volumeInfluence = 0.90f;
         }
 
@@ -346,6 +399,8 @@ namespace Weather
             windDirection = new Vector3(0.8f, 0f, 0.2f); windSpeed = 0.8f;
             precipitationType = PrecipitationType.Snow; precipitationIntensity = 0.7f;
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.4f; starVisibilityMultiplier = 0.1f;
+            horizonHazeStrength = 0.5f; horizonHazeColor = new Color(0.88f, 0.90f, 0.95f, 1f); horizonHazeHeight = 0.18f; horizonHazeFalloff = 2.5f;
+            cloudLayer2Coverage = 0.3f; cloudLayer2Scale = 8f; cloudLayer2Speed = 0.4f; cloudLayer2Opacity = 0.35f; cloudLayer2Height = 0.1f;
             volumeInfluence = 0.6f;
         }
     }

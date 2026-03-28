@@ -287,6 +287,28 @@ public class WeatherManager : MonoBehaviour
             // Star visibility (base StarBrightness is 1.2 — multiply by weather factor)
             _skyboxMaterial.SetFloat("_StarBrightness",
                 1.2f * Mathf.Lerp(from.starVisibilityMultiplier, to.starVisibilityMultiplier, t));
+
+            // Horizon Haze
+            _skyboxMaterial.SetFloat("_HorizonHazeStrength",
+                Mathf.Lerp(from.horizonHazeStrength, to.horizonHazeStrength, t));
+            _skyboxMaterial.SetColor("_HorizonHazeColor",
+                Color.Lerp(from.horizonHazeColor, to.horizonHazeColor, t));
+            _skyboxMaterial.SetFloat("_HorizonHazeHeight",
+                Mathf.Lerp(from.horizonHazeHeight, to.horizonHazeHeight, t));
+            _skyboxMaterial.SetFloat("_HorizonHazeFalloff",
+                Mathf.Lerp(from.horizonHazeFalloff, to.horizonHazeFalloff, t));
+
+            // Cloud Layer 2
+            _skyboxMaterial.SetFloat("_CloudLayer2Coverage",
+                Mathf.Lerp(from.cloudLayer2Coverage, to.cloudLayer2Coverage, t));
+            _skyboxMaterial.SetFloat("_CloudLayer2Scale",
+                Mathf.Lerp(from.cloudLayer2Scale, to.cloudLayer2Scale, t));
+            _skyboxMaterial.SetFloat("_CloudLayer2Speed",
+                Mathf.Lerp(from.cloudLayer2Speed, to.cloudLayer2Speed, t));
+            _skyboxMaterial.SetFloat("_CloudLayer2Opacity",
+                Mathf.Lerp(from.cloudLayer2Opacity, to.cloudLayer2Opacity, t));
+            _skyboxMaterial.SetFloat("_CloudLayer2Height",
+                Mathf.Lerp(from.cloudLayer2Height, to.cloudLayer2Height, t));
         }
 
         // ── Apply DayNightCycle multipliers
