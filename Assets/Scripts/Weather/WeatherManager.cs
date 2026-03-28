@@ -42,6 +42,16 @@ public class WeatherManager : MonoBehaviour
     [Tooltip("Press in Play mode to manually trigger a random weather change")]
     [SerializeField] private bool _debugForceRandomWeather = false;
 
+    [Header("Auto Refresh")]
+    [Tooltip("When enabled, the active weather profile's Inspector values are pushed to the shader " +
+             "every frame while no transition is running. This means edits made to a WeatherProfile " +
+             "asset in the Inspector are immediately visible in the scene without needing to " +
+             "re-trigger a weather transition.\n\n" +
+             "The per-frame cost is very small (a few dozen SetFloat/SetColor calls), but you can " +
+             "disable this in shipped builds via code or toggle it off in the Inspector if every " +
+             "CPU cycle matters.")]
+    public bool autoRefreshProfile = true;
+
     // ─── PRIVATE STATE ───────────────────────────────────────────────
 
     private Weather.WeatherProfile _sourceWeather;
@@ -182,15 +192,24 @@ public class WeatherManager : MonoBehaviour
             _transitionProgress = Mathf.Clamp01(_transitionProgress);
             ApplyWeatherLerp(_sourceWeather, _targetWeather, _transitionProgress);
         }
-        else if (_dissolveOffset.sqrMagnitude > 0.0001f)
+        else
         {
+            // Auto-refresh: re-apply the active profile every frame so any Inspector edits
+            // to the WeatherProfile asset are immediately visible without triggering a
+            // new transition. Coverage values are kept stable (no random re-roll).
+            if (autoRefreshProfile && currentWeather != null)
+                ApplyWeatherLerp(currentWeather, currentWeather, 1f);
+
             // Gradually decay the dissolve offset back to zero after the transition completes
             // so the cloud pattern returns to its normal steady-state position.
-            _dissolveOffset = Vector4.Lerp(_dissolveOffset, Vector4.zero, Time.deltaTime * 0.5f);
-            if (_dissolveOffset.sqrMagnitude < 0.0001f)
-                _dissolveOffset = Vector4.zero;
-            if (_skyboxMaterial != null)
-                _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
+            if (_dissolveOffset.sqrMagnitude > 0.0001f)
+            {
+                _dissolveOffset = Vector4.Lerp(_dissolveOffset, Vector4.zero, Time.deltaTime * 0.5f);
+                if (_dissolveOffset.sqrMagnitude < 0.0001f)
+                    _dissolveOffset = Vector4.zero;
+                if (_skyboxMaterial != null)
+                    _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
+            }
         }
 
         // Keep the volume weight in sync every frame (volume influence can
@@ -269,6 +288,29 @@ public class WeatherManager : MonoBehaviour
             }
         }
         Debug.LogWarning($"[WeatherManager] No weather profile named '{name}' found.");
+    }
+
+    /// <summary>
+    /// Immediately re-applies the active weather profile to the skybox material without
+    /// starting a new transition. Useful when a WeatherProfile asset has been edited in
+    /// the Inspector and you want the changes reflected instantly.
+    /// Cloud coverage values are preserved — no random re-roll occurs.
+    /// </summary>
+    public void RefreshCurrentWeather()
+    {
+        if (currentWeather == null) return;
+        // Lock in the current rendered coverage so there is no jump
+        if (_skyboxMaterial != null)
+        {
+            _fromCoverage  = _skyboxMaterial.GetFloat("_CloudCoverage");
+            _toCoverage    = _fromCoverage;
+            if (_skyboxMaterial.HasProperty("_Cloud2Coverage"))
+            {
+                _fromCoverage2 = _skyboxMaterial.GetFloat("_Cloud2Coverage");
+                _toCoverage2   = _fromCoverage2;
+            }
+        }
+        ApplyWeatherLerp(currentWeather, currentWeather, 1f);
     }
 
     // ─── PRIVATE HELPERS ─────────────────────────────────────────────
