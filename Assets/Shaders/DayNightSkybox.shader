@@ -121,7 +121,6 @@ Shader "Custom/DayNightSkybox"
 
         [Header(Horizon Haze)]
         _HorizonHazeStrength ("Horizon Haze Strength", Range(0, 1)) = 0.3
-        _HorizonHazeColor ("Horizon Haze Color", Color) = (1, 1, 1, 1)
         _HorizonHazeHeight ("Horizon Haze Height", Range(0.01, 1.0)) = 0.15
         _HorizonHazeFalloff ("Horizon Haze Falloff", Range(0.5, 8.0)) = 3.0
 
@@ -250,7 +249,6 @@ Shader "Custom/DayNightSkybox"
             float _VignetteStrength;
 
             float _HorizonHazeStrength;
-            float4 _HorizonHazeColor;
             float _HorizonHazeHeight;
             float _HorizonHazeFalloff;
 
@@ -745,15 +743,33 @@ Shader "Custom/DayNightSkybox"
                     col = lerp(col, cloudColor, cloudAlpha);
                 }
 
-                // ─── HORIZON HAZE ─────────────────────────────────
-                // Fills the gap between the ground and cloud layer with an atmospheric
-                // haze band that is strongest at the horizon (dir.y ≈ 0) and fades upward.
+                // ─── HORIZON HAZE ─────────────────────────────────────────
+                // Haze color is derived automatically from sky + cloud colors, adapting
+                // to both time of day and active weather — no separate color property needed.
                 if (_HorizonHazeStrength > 0.001)
                 {
+                    // Sky horizon reference: blend between night panorama and day horizon
+                    // so the haze color shifts from dark-blue at night → warm at sunset → blue-white at noon.
+                    float3 skyHorizonColor = lerp(_DaySkyColorHorizon.rgb * _DayAtmosphereStrength,
+                                                  nightBase, 1.0 - dayFactor);
+                    // Add sunrise/sunset warmth at the horizon line
+                    float3 transitionTint = lerp(_SunriseColor.rgb, _SunsetColor.rgb,
+                                                 smoothstep(0.3, 0.7, _TimeOfDay));
+                    skyHorizonColor = lerp(skyHorizonColor, transitionTint, transitionFactor * 0.5);
+
+                    // Cloud color reference: time-of-day base tinted by the weather cloud color
+                    float3 cloudLitColor = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
+                    cloudLitColor = lerp(cloudLitColor, _CloudSunsetColor.rgb, transitionFactor * 0.8);
+                    cloudLitColor *= _CloudColor.rgb;
+
+                    // 60% cloud tint, 40% sky — clouds dominate so horizon and distant
+                    // clouds match when looking into the distance.
+                    float3 hazeColor = lerp(skyHorizonColor, cloudLitColor, 0.6);
+
                     float hazeFactor = _HorizonHazeStrength
                         * pow(saturate(1.0 - abs(dir.y) / max(_HorizonHazeHeight, 0.01)),
                               _HorizonHazeFalloff);
-                    col = lerp(col, _HorizonHazeColor.rgb, hazeFactor);
+                    col = lerp(col, hazeColor, saturate(hazeFactor));
                 }
 
                 // ─── VIGNETTE ─────────────────────────────────────

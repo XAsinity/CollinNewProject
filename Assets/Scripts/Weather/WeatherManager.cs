@@ -288,11 +288,9 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_StarBrightness",
                 1.2f * Mathf.Lerp(from.starVisibilityMultiplier, to.starVisibilityMultiplier, t));
 
-            // Horizon Haze
+            // Horizon Haze (WeatherManager is the SOLE controller — DayNightCycle does NOT touch these)
             _skyboxMaterial.SetFloat("_HorizonHazeStrength",
                 Mathf.Lerp(from.horizonHazeStrength, to.horizonHazeStrength, t));
-            _skyboxMaterial.SetColor("_HorizonHazeColor",
-                Color.Lerp(from.horizonHazeColor, to.horizonHazeColor, t));
             _skyboxMaterial.SetFloat("_HorizonHazeHeight",
                 Mathf.Lerp(from.horizonHazeHeight, to.horizonHazeHeight, t));
             _skyboxMaterial.SetFloat("_HorizonHazeFalloff",
