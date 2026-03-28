@@ -425,62 +425,91 @@ Shader "Custom/DayNightSkybox"
                                       float3 dissolveOff, float edgeSoftness,
                                       float variation, float layerSeed)
             {
-                float3 dir = normalize(worldDir);
+                float3 ndir = normalize(worldDir);
 
                 // Below-horizon rays get no clouds
-                if (dir.y < 0.02) return 0.0;
+                if (ndir.y < 0.02) return 0.0;
 
-                // Sphere-shell intersection: the 3D point where the view ray hits the cloud dome.
-                // No UV projection needed — the position IS the noise coordinate.
-                float3 shellPos = dir * shellRadius;
+                // ── Issue 4 Fix: Angular wind scrolling on the sphere surface.
+                // Adding a flat 3D vector to a curved surface stretches clouds in the wind
+                // direction and compresses them in the opposite direction.  Instead we scroll
+                // the azimuth angle so the wind moves the noise field uniformly in all directions.
+                float theta = atan2(ndir.z, ndir.x);  // azimuth
+                float phi   = asin(saturate(ndir.y)); // elevation (upper hemisphere only)
 
-                // Wind scrolling in 3D — clouds physically drift across the dome surface
-                float3 windOffset = float3(cloudDir.x, 0.0, cloudDir.z) * cloudSpeed * time;
-                float3 samplePos = shellPos * cloudScale * 0.001 + windOffset;
+                // Wind rotates the azimuth — clouds drift laterally, never vertically.
+                // The 0.1 factor converts the linear speed value to an angular rate (radians/unit-time)
+                // that produces visually similar drift speed to the original linear approach at
+                // mid-latitudes while being uniform in all directions across the sphere.
+                float2 windScroll = float2(cloudDir.x, cloudDir.z) * cloudSpeed * time * 0.1;
+                theta += windScroll.x;
 
-                // Storm roll-off: shift the 3D sample point directionally.
-                // Clouds appear to roll toward the horizon in the offset direction
-                // rather than fading/dissolving uniformly in place.
-                samplePos += dissolveOff;
+                // Storm dissolve offset — also angular so roll-off is uniform in all directions.
+                // Scaled by 0.1 to match the wind scroll convention (linear offset → angular offset).
+                float2 dissolveAngular = float2(dissolveOff.x, dissolveOff.z) * 0.1;
+                theta += dissolveAngular.x;
+
+                // Reconstruct the scrolled direction on the shell surface.
+                float3 scrolledDir = float3(cos(phi) * cos(theta), sin(phi), cos(phi) * sin(theta));
+                float3 samplePos = scrolledDir * shellRadius * cloudScale * 0.001;
 
                 // Layer separation: offset per-layer so Layer 1 and Layer 2 read from
                 // entirely different regions of the noise field and look distinct.
                 samplePos += float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
 
-                // Pseudo-parallax: sample at two slightly different shell radii and blend.
-                // 0.35 weight toward the inner sample means the outer surface dominates (0.65),
-                // giving a natural top-of-cloud look while thin edges still vary for depth.
-                float3 sampleInner = dir * (shellRadius * 0.97) * cloudScale * 0.001
-                                   + windOffset + dissolveOff
+                // Horizon correction: compensate for shell curvature near the horizon so
+                // clouds at shallow angles aren't stretched wider than overhead clouds.
+                float horizonCorrection = lerp(1.5, 1.0, smoothstep(0.0, 0.3, abs(ndir.y)));
+                samplePos *= horizonCorrection;
+
+                // ── Issue 1 Fix: Stronger parallax blend (0.35 → 0.45) for more 3D depth.
+                // The inner shell sample at 97 % radius gives a slightly different noise read,
+                // and blending it at 0.45 (instead of 0.35) makes the depth illusion stronger.
+                float3 sampleInner = scrolledDir * (shellRadius * 0.97) * cloudScale * 0.001
                                    + float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
-                float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.35);
+                sampleInner *= horizonCorrection;
+                float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.45);
 
                 // Mid-frequency detail — adds billowy texture within cloud masses
                 float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
                 float detail = FBMFine(detailPos);
 
                 // High-frequency wisps — thin edges and subtle wisp variation
+                // Issue 1 Fix: wisp weight range 0.05–0.25 (was 0.05–0.15) for stronger
+                // edge complexity, especially visible in dense overcast cloud masses.
                 float3 wispPos = samplePos * 5.0 + float3(17.5, 3.2, 11.1);
                 float wisps = FBM(wispPos);
-
-                // Blend: base shape controls WHERE, detail/wisps add billow character
-                float wispW = lerp(0.05, 0.15, saturate(variation));
+                float wispW = lerp(0.05, 0.25, saturate(variation));
                 float cloudNoise = baseShape * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
 
-                // Coverage threshold: coverage=0 → no clouds, coverage=1 → full overcast
+                // Issue 1 Fix: Extra high-frequency detail octave that scales with coverage.
+                // At low coverage (scattered clouds) this is near-zero so individual clouds
+                // stay clean. At high coverage (overcast) it injects fine surface texture so
+                // dense cloud masses don't look like flat, low-res sheets.
+                float highFreqDetail = FBMFine(samplePos * 4.0) * 0.12 * saturate(coverage - 0.3);
+                cloudNoise += highFreqDetail;
+
+                // Preliminary coverage threshold — used to weight the core detail pass below.
                 float cloudMask = cloudNoise - (1.0 - coverage);
                 cloudMask = saturate(cloudMask * sharpness * density);
 
+                // Issue 1 Fix: Core detail — adds visible texture inside dense cloud cores.
+                // Weighted by the preliminary cloudMask so it only appears where cloud mass
+                // already exists, giving interior structure without affecting thin edges.
+                float coreDetail = FBMFine(samplePos * 6.0 + float3(33.7, 11.3, 22.9));
+                cloudNoise += coreDetail * 0.08 * saturate(cloudMask);
+
+                // Final coverage threshold with updated cloudNoise.
+                cloudMask = cloudNoise - (1.0 - coverage);
+                cloudMask = saturate(cloudMask * sharpness * density);
+
                 // edgeSoftness controls smoothstep width: low=hard edges, high=wispy margins.
-                // Multiplier is 2.0 (vs the old 1.5) because sphere-shell sampling naturally
-                // compresses clouds near the horizon, so edges need the wider ramp to avoid
-                // hard boundaries where the horizonFade kicks in.
                 float edgeWidth = max(edgeSoftness * 2.0, 0.15);
                 cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
 
                 // Horizon fade: shallow-angle rays hit the shell far away, so clouds near the
                 // horizon naturally thin out — no explicit UV correction needed.
-                float horizonFade = smoothstep(0.02, 0.25, dir.y);
+                float horizonFade = smoothstep(0.02, 0.25, ndir.y);
                 cloudMask *= horizonFade;
 
                 return cloudMask;

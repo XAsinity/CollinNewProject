@@ -138,6 +138,10 @@ namespace Weather
         [Tooltip("Wind speed multiplier applied to cloud movement")]
         public float windSpeed = 1f;
 
+        [Tooltip("Extra speed added to cloud movement during this weather on top of the multiplier " +
+                 "(0 = no boost, 0.3 = 30% faster). Useful for storm conditions to lean into faster winds.")]
+        public float windSpeedBoost = 0f;
+
         // ─── STORM TRANSITION ────────────────────────────────────────
 
         [Header("Storm Transition")]
@@ -173,7 +177,8 @@ namespace Weather
         // ─── HORIZON HAZE ────────────────────────────────────────────
 
         [Header("Horizon Haze")]
-        [Tooltip("Intensity of the haze band at the horizon line (0 = off, 1 = full)")]
+        [Tooltip("Absolute intensity of the haze band at the horizon line (0 = off, 1 = full). " +
+                 "WeatherManager uses this value directly — no base multiplier applied.")]
         public float horizonHazeStrength = 0.3f;
 
         [Tooltip("How high the haze extends upward into the sky (0.01 = very low band, 1.0 = full sky)")]
@@ -181,9 +186,6 @@ namespace Weather
 
         [Tooltip("Sharpness of the haze fade edge (low value = soft gradient, high = hard band)")]
         public float horizonHazeFalloff = 3f;
-
-        [Tooltip("Multiplier on the material's base _HorizonHazeStrength (1 = preserve designer value, 0.3 = heavy storm reduction)")]
-        public float horizonHazeMultiplier = 1f;
 
         // ─── CLOUD LAYER 2 SETTINGS ──────────────────────────────────
 
@@ -253,7 +255,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.5f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 1f; starVisibilityMultiplier = 1f;
-            horizonHazeStrength = 0.15f; horizonHazeHeight = 0.1f; horizonHazeFalloff = 4f; horizonHazeMultiplier = 1.0f;
+            horizonHazeStrength = 0.15f; horizonHazeHeight = 0.1f; horizonHazeFalloff = 4f;
             cloud2CoverageMin = 0.0f; cloud2CoverageMax = 0.05f;
             cloud2DensityMultiplier = 0.6f; cloud2SharpnessMultiplier = 0.7f; cloud2ScaleMultiplier = 1.2f; cloud2SpeedMultiplier = 1.1f;
             cloud2Brightness = 1.0f; cloud2Darkness = 0.30f;
@@ -262,6 +264,7 @@ namespace Weather
             cloudEdgeSoftness = 0.25f; cloudVariation = 0.4f;
             volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
             stormRollSpeed = 0f;
+            windSpeedBoost = 0f;
         }
 
         [ContextMenu("Preset: Slightly Cloudy")]
@@ -281,7 +284,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.8f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 0.9f; starVisibilityMultiplier = 0.9f;
-            horizonHazeStrength = 0.2f; horizonHazeHeight = 0.12f; horizonHazeFalloff = 3.5f; horizonHazeMultiplier = 0.9f;
+            horizonHazeStrength = 0.2f; horizonHazeHeight = 0.11f; horizonHazeFalloff = 3.8f;
             cloud2CoverageMin = 0.05f; cloud2CoverageMax = 0.15f;
             cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.8f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 1.0f; cloud2Darkness = 0.35f;
@@ -290,6 +293,7 @@ namespace Weather
             cloudEdgeSoftness = 0.22f; cloudVariation = 0.5f;
             volumeInfluence = 0.1f;
             stormRollSpeed = 0f;
+            windSpeedBoost = 0f;
         }
 
         [ContextMenu("Preset: Partly Cloudy")]
@@ -309,7 +313,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.9f; horizonGlowMultiplier = 0.8f; starVisibilityMultiplier = 0.6f;
-            horizonHazeStrength = 0.3f; horizonHazeHeight = 0.15f; horizonHazeFalloff = 3f; horizonHazeMultiplier = 0.8f;
+            horizonHazeStrength = 0.25f; horizonHazeHeight = 0.12f; horizonHazeFalloff = 3.5f;
             cloud2CoverageMin = 0.1f; cloud2CoverageMax = 0.3f;
             cloud2DensityMultiplier = 0.8f; cloud2SharpnessMultiplier = 0.9f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.9f; cloud2Darkness = 0.40f;
@@ -318,6 +322,7 @@ namespace Weather
             cloudEdgeSoftness = 0.18f; cloudVariation = 0.65f;
             volumeInfluence = 0.2f;
             stormRollSpeed = 0.1f;
+            windSpeedBoost = 0f;
         }
 
         [ContextMenu("Preset: Mostly Cloudy")]
@@ -337,7 +342,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.2f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.7f; horizonGlowMultiplier = 0.5f; starVisibilityMultiplier = 0.2f;
-            horizonHazeStrength = 0.45f; horizonHazeHeight = 0.18f; horizonHazeFalloff = 2.5f; horizonHazeMultiplier = 0.7f;
+            horizonHazeStrength = 0.35f; horizonHazeHeight = 0.16f; horizonHazeFalloff = 2.8f;
             cloud2CoverageMin = 0.25f; cloud2CoverageMax = 0.45f;
             cloud2DensityMultiplier = 0.9f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 0.95f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.8f; cloud2Darkness = 0.55f;
@@ -346,6 +351,7 @@ namespace Weather
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.6f;
             volumeInfluence = 0.5f;
             stormRollSpeed = 0.2f;
+            windSpeedBoost = 0.05f;
         }
 
         [ContextMenu("Preset: Overcast")]
@@ -365,7 +371,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.4f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.4f; horizonGlowMultiplier = 0.2f; starVisibilityMultiplier = 0.05f;
-            horizonHazeStrength = 0.6f; horizonHazeHeight = 0.22f; horizonHazeFalloff = 2f; horizonHazeMultiplier = 0.5f;
+            horizonHazeStrength = 0.6f; horizonHazeHeight = 0.25f; horizonHazeFalloff = 1.8f;
             cloud2CoverageMin = 0.4f; cloud2CoverageMax = 0.7f;
             cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.65f; cloud2Darkness = 0.65f;
@@ -374,6 +380,7 @@ namespace Weather
             cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
             volumeInfluence = 0.75f;
             stormRollSpeed = 0.3f;
+            windSpeedBoost = 0.1f;
         }
 
         [ContextMenu("Preset: Super Cloudy")]
@@ -393,7 +400,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 1.6f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.25f; horizonGlowMultiplier = 0.1f; starVisibilityMultiplier = 0.0f;
-            horizonHazeStrength = 0.7f; horizonHazeHeight = 0.25f; horizonHazeFalloff = 1.8f; horizonHazeMultiplier = 0.4f;
+            horizonHazeStrength = 0.5f; horizonHazeHeight = 0.22f; horizonHazeFalloff = 2.0f;
             cloud2CoverageMin = 0.5f; cloud2CoverageMax = 0.75f;
             cloud2DensityMultiplier = 1.2f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.85f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.5f; cloud2Darkness = 0.75f;
@@ -402,6 +409,7 @@ namespace Weather
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.35f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.4f;
+            windSpeedBoost = 0.1f;
         }
 
         [ContextMenu("Preset: Light Rain")]
@@ -421,7 +429,7 @@ namespace Weather
             windDirection = new Vector3(1f, 0f, 0.3f); windSpeed = 1.5f;
             precipitationType = PrecipitationType.Rain; precipitationIntensity = 0.4f;
             dayAtmosphereMultiplier = 0.5f; horizonGlowMultiplier = 0.15f; starVisibilityMultiplier = 0.0f;
-            horizonHazeStrength = 0.55f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.2f; horizonHazeMultiplier = 0.4f;
+            horizonHazeStrength = 0.55f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.2f;
             cloud2CoverageMin = 0.3f; cloud2CoverageMax = 0.6f;
             cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.2f;
             cloud2Brightness = 0.55f; cloud2Darkness = 0.70f;
@@ -430,6 +438,7 @@ namespace Weather
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.5f;
+            windSpeedBoost = 0.15f;
         }
 
         [ContextMenu("Preset: Heavy Storm")]
@@ -449,7 +458,7 @@ namespace Weather
             windDirection = new Vector3(1f, 0f, 0.5f); windSpeed = 2.5f;
             precipitationType = PrecipitationType.Rain; precipitationIntensity = 1.0f;
             dayAtmosphereMultiplier = 0.15f; horizonGlowMultiplier = 0.05f; starVisibilityMultiplier = 0.0f;
-            horizonHazeStrength = 0.8f; horizonHazeHeight = 0.3f; horizonHazeFalloff = 1.5f; horizonHazeMultiplier = 0.3f;
+            horizonHazeStrength = 0.7f; horizonHazeHeight = 0.3f; horizonHazeFalloff = 1.5f;
             cloud2CoverageMin = 0.5f; cloud2CoverageMax = 0.85f;
             cloud2DensityMultiplier = 1.3f; cloud2SharpnessMultiplier = 1.2f; cloud2ScaleMultiplier = 0.85f; cloud2SpeedMultiplier = 1.5f;
             cloud2Brightness = 0.4f; cloud2Darkness = 0.80f;
@@ -458,6 +467,7 @@ namespace Weather
             cloudEdgeSoftness = 0.08f; cloudVariation = 0.3f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
             stormRollSpeed = 1.0f;
+            windSpeedBoost = 0.3f;
         }
 
         [ContextMenu("Preset: Fog")]
@@ -478,7 +488,7 @@ namespace Weather
             windDirection = Vector3.right; windSpeed = 0.2f;
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.3f; starVisibilityMultiplier = 0.0f;
-            horizonHazeStrength = 0.9f; horizonHazeHeight = 0.35f; horizonHazeFalloff = 1f; horizonHazeMultiplier = 1.2f;
+            horizonHazeStrength = 0.9f; horizonHazeHeight = 0.35f; horizonHazeFalloff = 1f;
             cloud2CoverageMin = 0.1f; cloud2CoverageMax = 0.4f;
             cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.6f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 0.5f;
             cloud2Brightness = 0.85f; cloud2Darkness = 0.35f;
@@ -487,6 +497,7 @@ namespace Weather
             cloudEdgeSoftness = 0.3f; cloudVariation = 0.2f;
             volumeInfluence = 0.90f;
             stormRollSpeed = 0.1f;
+            windSpeedBoost = 0f;
         }
 
         [ContextMenu("Preset: Snow")]
@@ -506,7 +517,7 @@ namespace Weather
             windDirection = new Vector3(0.8f, 0f, 0.2f); windSpeed = 0.8f;
             precipitationType = PrecipitationType.Snow; precipitationIntensity = 0.7f;
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.4f; starVisibilityMultiplier = 0.1f;
-            horizonHazeStrength = 0.5f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.5f; horizonHazeMultiplier = 0.7f;
+            horizonHazeStrength = 0.5f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.5f;
             cloud2CoverageMin = 0.3f; cloud2CoverageMax = 0.65f;
             cloud2DensityMultiplier = 1.0f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 0.8f;
             cloud2Brightness = 0.95f; cloud2Darkness = 0.25f;
@@ -515,6 +526,7 @@ namespace Weather
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.5f;
             volumeInfluence = 0.6f;
             stormRollSpeed = 0.3f;
+            windSpeedBoost = 0.05f;
         }
     }
 }
