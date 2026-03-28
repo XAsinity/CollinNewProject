@@ -11,6 +11,22 @@ namespace Weather
         [Tooltip("Display name for this weather condition")]
         public string profileName = "Clear";
 
+        // ─── EDITOR AUTO-REFRESH ─────────────────────────────────────
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Called by Unity whenever any field on this ScriptableObject changes in the Inspector.
+        /// If a WeatherManager is running and this is the active profile, immediately push the
+        /// new values to the shader so changes are visible without re-triggering a transition.
+        /// </summary>
+        private void OnValidate()
+        {
+            if (!Application.isPlaying) return;
+            if (WeatherManager.Instance != null && WeatherManager.Instance.currentWeather == this)
+                WeatherManager.Instance.RefreshCurrentWeather();
+        }
+#endif
+
         // ─── CLOUD SETTINGS ──────────────────────────────────────────
 
         [Header("Cloud Settings")]
