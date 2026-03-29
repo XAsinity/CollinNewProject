@@ -467,9 +467,11 @@ Shader "Custom/DayNightSkybox"
                 float3 flatPos = float3(ndir.x * t, 0.0, ndir.z * t) * cloudScale * 0.0003;
 
                 // Blend between sphere (good horizon parallax) and flat-plane (no zenith rings).
-                // At low elevation angles use sphere; at high elevation angles use flat-plane.
-                // zenithBlend scales the blend so 0 = full sphere, 1 = full flat-plane overhead.
-                float blendFactor = smoothstep(0.15, 0.6, ndir.y) * zenithBlend;
+                // Much more aggressive blend: starts almost immediately above horizon,
+                // fully flat-plane by ~20° elevation. pow(x, 0.5) makes it ramp faster.
+                // zenithBlend scales overall influence (0 = full sphere, 1 = full flat-plane overhead).
+                float rawBlend = smoothstep(0.05, 0.35, ndir.y);
+                float blendFactor = pow(rawBlend, 0.5) * zenithBlend;
                 float3 sampleBase = lerp(spherePos, flatPos, blendFactor);
 
                 float3 samplePos = sampleBase + windOffset + dissolveOffset3D;
