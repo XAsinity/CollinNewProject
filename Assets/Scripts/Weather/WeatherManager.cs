@@ -198,6 +198,9 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_HorizonHazeFalloff",    4f);
             _skyboxMaterial.SetFloat("_StarBrightness",         1.2f);
             _skyboxMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
+            _skyboxMaterial.SetFloat("_CloudCurlStrength",    0.6f);
+            _skyboxMaterial.SetFloat("_CloudCurlScale",       3.0f);
+            _skyboxMaterial.SetFloat("_CloudElevationCompress", 1.2f);
         }
         if (dayNightCycle != null)
         {
@@ -252,6 +255,9 @@ public class WeatherManager : MonoBehaviour
                 _skyboxMaterial.SetFloat("_HorizonHazeHeight",     0.1f);
                 _skyboxMaterial.SetFloat("_HorizonHazeFalloff",    4f);
                 _skyboxMaterial.SetFloat("_StarBrightness",        1.2f);
+                _skyboxMaterial.SetFloat("_CloudCurlStrength",    0.6f);
+                _skyboxMaterial.SetFloat("_CloudCurlScale",       3.0f);
+                _skyboxMaterial.SetFloat("_CloudElevationCompress", 1.2f);
             }
         }
 
@@ -573,6 +579,14 @@ public class WeatherManager : MonoBehaviour
             // Directional dissolve offset — shifts cloud noise UVs so departing storms
             // appear to roll away in the wind direction rather than fading uniformly.
             _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
+
+            // Cloud Curl Warp — lerp the three new curl noise properties
+            _skyboxMaterial.SetFloat("_CloudCurlStrength",
+                Mathf.Lerp(from.cloudCurlStrength, to.cloudCurlStrength, t));
+            _skyboxMaterial.SetFloat("_CloudCurlScale",
+                Mathf.Lerp(from.cloudCurlScale, to.cloudCurlScale, t));
+            _skyboxMaterial.SetFloat("_CloudElevationCompress",
+                Mathf.Lerp(from.cloudElevationCompress, to.cloudElevationCompress, t));
         }
 
         // ── Apply DayNightCycle multipliers

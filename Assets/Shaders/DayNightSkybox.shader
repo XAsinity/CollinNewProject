@@ -148,6 +148,11 @@ Shader "Custom/DayNightSkybox"
         [Header(Storm Transition)]
         _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
 
+        [Header(Cloud Curl Warp)]
+        _CloudCurlStrength ("Cloud Curl Warp Strength", Range(0, 3)) = 1.0
+        _CloudCurlScale ("Cloud Curl Scale", Range(0.5, 10)) = 3.0
+        _CloudElevationCompress ("Cloud Elevation Compression", Range(0.1, 4.0)) = 1.5
+
         [Header(Cloud Shell Altitude)]
         _CloudShellRadius ("Cloud Shell Radius", Range(500, 100000)) = 5000.0
         _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 100000)) = 8000.0
@@ -294,6 +299,10 @@ Shader "Custom/DayNightSkybox"
 
             float4 _CloudDissolveOffset;
 
+            float _CloudCurlStrength;
+            float _CloudCurlScale;
+            float _CloudElevationCompress;
+
             float _CloudShellRadius;
             float _Cloud2ShellRadius;
 
@@ -406,13 +415,39 @@ Shader "Custom/DayNightSkybox"
                 return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
             }
 
-            // Compute cloud density for one layer using flat-plane projection with
-            // multi-slice vertical integration for volumetric thickness.
+            // ─── CURL NOISE (2D divergence-free noise from FBM derivatives) ──
             //
-            // The flat plane eliminates concentric ring artifacts by projecting the view
-            // ray onto a horizontal plane (shellRadius = altitude).  To restore 3D depth,
-            // we march through several thin slices stacked vertically around that altitude
-            // and accumulate density — giving the clouds real thickness and self-shadowing.
+            // Curl noise is the 2D divergence-free "rotation" of a scalar noise field.
+            // Given a scalar potential f(x,y), the curl is (df/dy, -df/dx).
+            // This produces swirling, vortex-like displacement vectors that mimic
+            // real turbulent airflow — the kind that shapes real clouds.
+            float2 CurlNoise2D(float2 p)
+            {
+                // eps = 0.01 chosen to be small enough to approximate the derivative
+                // accurately while staying large enough to avoid floating-point precision
+                // issues at typical noise-space coordinate magnitudes (~0.1 to 10).
+                float eps = 0.01;
+                float n0 = FBM(float3(p.x, p.y + eps, 0));
+                float n1 = FBM(float3(p.x, p.y - eps, 0));
+                float n2 = FBM(float3(p.x + eps, p.y, 0));
+                float n3 = FBM(float3(p.x - eps, p.y, 0));
+                float dndx = (n2 - n3) / (2.0 * eps);
+                float dndy = (n0 - n1) / (2.0 * eps);
+                return float2(dndy, -dndx);
+            }
+
+            // Compute cloud density for one layer using Curl Noise Domain Warping
+            // with Elevation-Aware Cylindrical Projection.
+            //
+            // Technique overview:
+            //   1. Cylindrical UV — atan2 azimuth + linear elevation, no radial
+            //      compression so there are no concentric zenith ring artifacts.
+            //   2. Curl noise warp — distorts UVs before FBM sampling to create
+            //      organic swirling shapes that mimic turbulent airflow.
+            //   3. Elevation-aware density — compresses noise sampling near the
+            //      horizon (atmospheric perspective) and stretches it overhead.
+            //   4. Dual-offset parallax — a second sample with an orthogonally
+            //      rotated curl displacement gives apparent depth cheaply.
             float CalculateCloudLayer(float3 worldDir, float shellRadius, float cloudScale,
                                       float cloudSpeed, float4 cloudDir, float coverage,
                                       float density, float sharpness, float time,
@@ -424,74 +459,69 @@ Shader "Custom/DayNightSkybox"
                 // Below-horizon rays get no clouds
                 if (ndir.y < 0.005) return 0.0;
 
-                // ── FLAT-PLANE PROJECTION (XZ positioning — no rings) ──
-                // Project view ray onto a horizontal plane at shellRadius height.
-                // This determines the cloud's horizontal position on the sky dome.
-                float safeY = max(ndir.y, 0.02);
+                // ── CYLINDRICAL PROJECTION ──────────────────────────────────
+                // azimuth wraps continuously around the full horizon — no radial
+                // compression at the zenith, so no concentric ring artifacts.
+                // elevation is a linear 0..1 value from horizon to zenith.
+                float azimuth   = atan2(ndir.x, ndir.z) * (0.5 / UNITY_PI); // [-0.5, 0.5]
+                float elevation = ndir.y;                                      // [0, 1]
 
-                // Wind scrolling
-                float3 windOffset = float3(cloudDir.x, 0.0, cloudDir.z) * cloudSpeed * time;
+                // Scale into noise-frequency space
+                float2 uv = float2(azimuth, elevation) * cloudScale * 0.2;
 
-                // Storm dissolve bias
-                float3 layerOffset = float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
+                // Wind scrolling — independent of cloudScale so speed is perceptually
+                // consistent regardless of the noise zoom level
+                float2 windOffset = float2(cloudDir.x, cloudDir.z) * cloudSpeed * time * 0.1;
+                uv += windOffset;
 
-                // ── MULTI-SLICE VERTICAL INTEGRATION (3D depth) ──
-                // Sample noise at 5 altitude slices stacked around the shell radius.
-                // Each slice is a flat plane at a slightly different height.
-                // This gives the clouds real volumetric thickness — they look 3D
-                // because each slice contributes differently based on the view angle.
-                //
-                // sliceSpacing controls the physical thickness of the cloud layer.
-                // Larger values = thicker, puffier clouds.
-                float sliceSpacing = shellRadius * 0.04;  // 4% of shell radius per slice
-                float totalDensity = 0.0;
-                float totalWeight = 0.0;
+                // Storm dissolve offset — shifts clouds during weather transitions
+                uv += float2(dissolveOff.x, dissolveOff.z);
 
-                // 5 slices: -2, -1, 0, +1, +2 (centered on shellRadius)
-                for (int slice = -2; slice <= 2; slice++)
-                {
-                    float sliceHeight = shellRadius + slice * sliceSpacing;
-                    float t_plane = sliceHeight / safeY;
-                    float3 planePos = float3(ndir.x * t_plane, 0.0, ndir.z * t_plane);
+                // Layer seed separation — ensures layer 2 samples a different region
+                uv += float2(layerSeed * 3.7, layerSeed * 2.1);
 
-                    // 3D sample position: XZ from flat plane, Y from slice height
-                    // The Y coordinate uses the slice index to separate each layer
-                    // in noise space, creating genuine vertical variation.
-                    float3 samplePos = float3(
-                        planePos.x * cloudScale * 0.00003,
-                        slice * 0.7,  // vertical separation in noise space
-                        planePos.z * cloudScale * 0.00003
-                    ) + windOffset + dissolveOff + layerOffset;
+                // ── CURL NOISE DOMAIN WARPING ────────────────────────────────
+                // Warp UV coords using the 2D divergence-free derivative of a noise
+                // field.  This creates swirling, turbulent cloud shapes that mimic
+                // real airflow.  The + time * 0.1 slowly evolves the swirl pattern
+                // over time so clouds have an organic, living quality.
+                float2 curvUV = uv * _CloudCurlScale + time * 0.1;
+                float2 curl   = CurlNoise2D(curvUV);
+                float2 warpedUV = uv + curl * _CloudCurlStrength;
 
-                    // Base shape from FBM
-                    float n = FBM(samplePos);
+                // ── PARALLAX VIA DUAL-OFFSET CURL ───────────────────────────
+                // Rotate the curl vector 90° for the second sample.  The orthogonal
+                // displacement gives the two reads different spatial structure,
+                // creating perceived depth without a second CurlNoise2D call.
+                float2 warpedUV2 = uv + float2(-curl.y, curl.x) * _CloudCurlStrength * 0.5;
 
-                    // Add mid-frequency detail for billowy internal texture
-                    float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
-                    float detail = FBMFine(detailPos);
+                // ── ELEVATION-AWARE 3D SAMPLE POSITION ─────────────────────
+                // Near horizon: small elevation → compressed Y coord → denser clouds.
+                // Near zenith:  large elevation → stretched Y coord → sparser clouds.
+                float3 samplePos  = float3(warpedUV.x,  elevation * _CloudElevationCompress,  warpedUV.y);
+                float3 samplePos2 = float3(warpedUV2.x, elevation * _CloudElevationCompress, warpedUV2.y);
 
-                    // Add high-frequency wisps for edge complexity
-                    float3 wispPos = samplePos * 5.0 + float3(17.5, 3.2, 11.1);
-                    float wisps = FBM(wispPos);
+                // ── PRIMARY FBM SAMPLE (base shape + detail + wisps) ────────
+                float n = FBM(samplePos);
+                float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
+                float detail = FBMFine(detailPos);
+                float wispW = lerp(0.05, 0.15, saturate(variation));
+                float3 wispPos = samplePos * 5.0 + float3(17.5, 3.2, 11.1);
+                float wisps = FBM(wispPos);
+                float noiseVal = n * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
 
-                    float wispW = lerp(0.05, 0.15, saturate(variation));
-                    float sliceNoise = n * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
+                // ── PARALLAX SAMPLE (depth via dual-offset curl) ─────────────
+                float np = FBM(samplePos2);
+                float3 detailPos2 = samplePos2 * 2.5 + float3(5.3, 1.7, 3.1);
+                float detailp = FBMFine(detailPos2);
+                float noiseVal2 = np * (0.7 - wispW) + detailp * 0.3;
 
-                    // Coverage threshold
-                    float sliceMask = sliceNoise - (1.0 - coverage);
-                    sliceMask = saturate(sliceMask * sharpness * density);
+                // Coverage threshold + sharpness
+                float mask1 = saturate((noiseVal  - (1.0 - coverage)) * sharpness * density);
+                float mask2 = saturate((noiseVal2 - (1.0 - coverage)) * sharpness * density);
 
-                    // Weight each slice — center slice (0) contributes most,
-                    // outer slices contribute less, creating a rounded profile.
-                    // This is what makes the clouds look puffy rather than flat.
-                    float sliceWeight = 1.0 - abs(slice) * 0.25;
-
-                    totalDensity += sliceMask * sliceWeight;
-                    totalWeight += sliceWeight;
-                }
-
-                // Normalize accumulated density
-                float cloudMask = totalDensity / max(totalWeight, 0.001);
+                // Blend: primary dominates (70%), parallax adds depth (30%)
+                float cloudMask = mask1 * 0.7 + mask2 * 0.3;
 
                 // Edge softness
                 float edgeWidth = max(edgeSoftness * 2.0, 0.15);
