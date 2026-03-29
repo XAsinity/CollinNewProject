@@ -232,6 +232,21 @@ namespace Weather
         [Tooltip("Overall opacity of the high-altitude cloud layer (lower = more transparent, wispy)")]
         public float cloud2Opacity = 0.5f;
 
+        // ─── CLOUD CURL WARP ────────────────────────────────────────
+
+        [Header("Cloud Curl Warp")]
+        [Range(0f, 3f)]
+        [Tooltip("How much curl noise distorts cloud shapes — 0 = standard FBM clouds, higher = more turbulent/swirling")]
+        public float cloudCurlStrength = 1.0f;
+
+        [Range(0.5f, 10f)]
+        [Tooltip("Frequency of the curl noise warp field — lower = large swirls, higher = tight eddies")]
+        public float cloudCurlScale = 3.0f;
+
+        [Range(0.1f, 4f)]
+        [Tooltip("How much cloud noise compresses near the horizon for atmospheric perspective")]
+        public float cloudElevationCompress = 1.5f;
+
         // ─── VOLUME INFLUENCE ────────────────────────────────────────
 
         [Header("Volume Influence")]
@@ -270,6 +285,7 @@ namespace Weather
             volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
             stormRollSpeed = 0f;
             windSpeedBoost = 0f;
+            cloudCurlStrength = 0.6f; cloudCurlScale = 3.0f; cloudElevationCompress = 1.2f;
         }
 
         [ContextMenu("Preset: Slightly Cloudy")]
@@ -299,6 +315,7 @@ namespace Weather
             volumeInfluence = 0.1f;
             stormRollSpeed = 0f;
             windSpeedBoost = 0f;
+            cloudCurlStrength = 0.8f; cloudCurlScale = 3.0f; cloudElevationCompress = 1.3f;
         }
 
         [ContextMenu("Preset: Partly Cloudy")]
@@ -328,6 +345,7 @@ namespace Weather
             volumeInfluence = 0.2f;
             stormRollSpeed = 0.1f;
             windSpeedBoost = 0f;
+            cloudCurlStrength = 1.0f; cloudCurlScale = 2.8f; cloudElevationCompress = 1.4f;
         }
 
         [ContextMenu("Preset: Mostly Cloudy")]
@@ -357,6 +375,7 @@ namespace Weather
             volumeInfluence = 0.5f;
             stormRollSpeed = 0.2f;
             windSpeedBoost = 0.05f;
+            cloudCurlStrength = 1.2f; cloudCurlScale = 2.5f; cloudElevationCompress = 1.5f;
         }
 
         [ContextMenu("Preset: Overcast")]
@@ -386,6 +405,7 @@ namespace Weather
             volumeInfluence = 0.75f;
             stormRollSpeed = 0.3f;
             windSpeedBoost = 0.1f;
+            cloudCurlStrength = 1.5f; cloudCurlScale = 2.0f; cloudElevationCompress = 1.8f;
         }
 
         [ContextMenu("Preset: Super Cloudy")]
@@ -415,6 +435,7 @@ namespace Weather
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.4f;
             windSpeedBoost = 0.1f;
+            cloudCurlStrength = 1.8f; cloudCurlScale = 1.8f; cloudElevationCompress = 2.0f;
         }
 
         [ContextMenu("Preset: Light Rain")]
@@ -444,6 +465,7 @@ namespace Weather
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.5f;
             windSpeedBoost = 0.15f;
+            cloudCurlStrength = 2.0f; cloudCurlScale = 2.2f; cloudElevationCompress = 1.8f;
         }
 
         [ContextMenu("Preset: Heavy Storm")]
@@ -473,6 +495,7 @@ namespace Weather
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
             stormRollSpeed = 1.0f;
             windSpeedBoost = 0.3f;
+            cloudCurlStrength = 2.5f; cloudCurlScale = 2.0f; cloudElevationCompress = 2.2f;
         }
 
         [ContextMenu("Preset: Fog")]
@@ -503,6 +526,7 @@ namespace Weather
             volumeInfluence = 0.90f;
             stormRollSpeed = 0.1f;
             windSpeedBoost = 0f;
+            cloudCurlStrength = 0.8f; cloudCurlScale = 4.0f; cloudElevationCompress = 2.0f;
         }
 
         [ContextMenu("Preset: Snow")]
@@ -532,6 +556,7 @@ namespace Weather
             volumeInfluence = 0.6f;
             stormRollSpeed = 0.3f;
             windSpeedBoost = 0.05f;
+            cloudCurlStrength = 1.3f; cloudCurlScale = 2.5f; cloudElevationCompress = 1.6f;
         }
     }
 }
