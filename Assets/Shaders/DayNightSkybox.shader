@@ -149,8 +149,8 @@ Shader "Custom/DayNightSkybox"
         _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
 
         [Header(Cloud Shell Altitude)]
-        _CloudShellRadius ("Cloud Shell Radius", Range(500, 100000)) = 25000.0
-        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 100000)) = 30000.0
+        _CloudShellRadius ("Cloud Shell Radius", Range(10000, 200000)) = 25000.0
+        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(10000, 200000)) = 35000.0
         _CloudZenithBlend ("Cloud Zenith Blend", Range(0, 1)) = 0.4
     }
 
@@ -969,28 +969,30 @@ Shader "Custom/DayNightSkybox"
                     col += CalculateDust(dir) * nightFactor;
                 }
 
+                // ─── PROCEDURAL CLOUDS — compute early to get cloudAlpha for occlusion ──
+                float cloudAlpha = 0.0;
+                float3 cloudColor = float3(0, 0, 0);
+                if (_EnableClouds > 0.5)
+                    cloudColor = CalculateClouds(dir, transitionFactor, dayFactor, cloudAlpha);
+                float cloudOcclusion = 1.0 - cloudAlpha;
+
                 // ─── SUN DISC ─────────────────────────────────────
                 if (_EnableSun > 0.5)
                 {
                     // Sun visible during day and at sunrise/sunset transitions
                     float sunVisibility = saturate(dayFactor + transitionFactor * 1.5);
-                    col += CalculateSunDisc(dir) * sunVisibility;
+                    col += CalculateSunDisc(dir) * sunVisibility * cloudOcclusion;
                 }
 
                 // ─── MOON DISC (night only) ───────────────────────
                 if (_EnableMoon > 0.5 && nightFactor > 0.001)
                 {
-                    col += CalculateMoonDisc(dir) * nightFactor;
+                    col += CalculateMoonDisc(dir) * nightFactor * cloudOcclusion;
                 }
 
-                // ─── PROCEDURAL CLOUDS ────────────────────────────
+                // ─── PROCEDURAL CLOUDS — composite ────────────────
                 if (_EnableClouds > 0.5)
-                {
-                    float cloudAlpha;
-                    float3 cloudColor = CalculateClouds(dir, transitionFactor, dayFactor, cloudAlpha);
                     col = lerp(col, cloudColor, cloudAlpha);
-                }
-
                 // ─── HORIZON HAZE ─────────────────────────────────────────
                 // Haze color is derived automatically from sky + cloud colors, adapting
                 // to both time of day and active weather — no separate color property needed.
