@@ -149,9 +149,8 @@ Shader "Custom/DayNightSkybox"
         _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
 
         [Header(Cloud Shell Altitude)]
-        _CloudShellRadius ("Cloud Shell Radius", Range(500, 200000)) = 80000.0
-        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 200000)) = 120000.0
-        _CloudZenithBlend ("Cloud Zenith Blend", Range(0, 1)) = 0.7
+        _CloudShellRadius ("Cloud Shell Radius", Range(500, 100000)) = 5000.0
+        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 100000)) = 8000.0
     }
 
     SubShader
@@ -297,7 +296,6 @@ Shader "Custom/DayNightSkybox"
 
             float _CloudShellRadius;
             float _Cloud2ShellRadius;
-            float _CloudZenithBlend;
 
             // ─── STRUCTS ─────────────────────────────────────────────
 
@@ -408,130 +406,77 @@ Shader "Custom/DayNightSkybox"
                 return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
             }
 
-            // Compute cloud density for one layer using sphere-shell 3D noise sampling.
-            // worldDir      : normalized view ray from the camera
-            // shellRadius   : altitude of the cloud sphere (higher = more distant/spread clouds)
-            // cloudScale    : noise frequency multiplier (higher = smaller clouds)
-            // cloudSpeed    : base scroll speed
-            // cloudDir      : wind direction vector (xz used; magnitude = windSpeed)
-            // coverage      : 0=clear, 1=overcast
-            // density/sharpness : edge-hardness controls
-            // time          : _Time.y
-            // dissolveOff   : 3D directional bias for storm roll-off transitions
-            // edgeSoftness  : smoothstep edge width (low=hard edges, high=wispy)
-            // variation     : wisp/detail blend weight (0=smooth blobs, 1=complex billowy)
-            // layerSeed     : per-layer constant to separate noise regions (0=Layer1, 1=Layer2)
+            // Compute cloud density for one layer using pure flat-plane projection.
+            // This completely eliminates the concentric ring artifacts that sphere-shell
+            // sampling produces. The view ray is projected onto a horizontal plane at
+            // height shellRadius, distributing noise coordinates evenly across the sky dome.
             float CalculateCloudLayer(float3 worldDir, float shellRadius, float cloudScale,
                                       float cloudSpeed, float4 cloudDir, float coverage,
                                       float density, float sharpness, float time,
                                       float3 dissolveOff, float edgeSoftness,
-                                      float variation, float layerSeed, float zenithBlend)
+                                      float variation, float layerSeed)
             {
                 float3 ndir = normalize(worldDir);
 
-                // Physics-based horizon scale: larger shellRadius pushes the dome boundary
-                // closer to the actual horizon (lower elevation angle), making the dome
-                // physically larger and its edge imperceptible. Reference radius 25000
-                // preserves the original smoothstep(0.005, 0.08) behavior at that size.
-                float horizonScale = clamp(25000.0 / shellRadius, 0.1, 2.0);
-                float horizonFadeStart = 0.005 * horizonScale;
+                // Below-horizon rays get no clouds
+                if (ndir.y < 0.005) return 0.0;
 
-                // Below-horizon rays get no clouds; threshold scales with dome size so
-                // large domes allow clouds to extend right to the mathematical horizon.
-                if (ndir.y < horizonFadeStart * 0.1) return 0.0;
+                // ── PURE FLAT-PLANE PROJECTION ──
+                // Project the view ray onto a horizontal plane at height shellRadius.
+                // This distributes noise coordinates evenly across the sky dome,
+                // completely eliminating the concentric ring artifacts that sphere-shell
+                // sampling produces.
+                //
+                // For near-horizon rays (small ndir.y), t becomes very large, which is
+                // correct — it stretches the clouds toward the horizon naturally.
+                // Clamping ndir.y to 0.02 prevents extreme values while still allowing
+                // clouds to reach very close to the horizon.
+                float t_plane = shellRadius / max(ndir.y, 0.02);
+                float3 planePos = float3(ndir.x * t_plane, 0.0, ndir.z * t_plane);
 
-                // Linear 3D wind offset: clouds drift in one direction and naturally disappear
-                // at the horizon as shallow-angle rays reach the shell at more distant points.
-                // Applying the offset directly to the 3D sample position (not rotating azimuth)
-                // means clouds scroll linearly — they travel one way and vanish at the edge.
+                // Apply noise scale
+                float3 sampleBase = planePos * cloudScale * 0.00003;
+
+                // Wind scrolling in 3D
                 float3 windOffset = float3(cloudDir.x, 0.0, cloudDir.z) * cloudSpeed * time;
 
-                // Storm dissolve offset: applied as a 3D bias on the sample position so
-                // departing storm clouds appear to roll toward the horizon in the wind direction.
+                // Storm dissolve offset
                 float3 dissolveOffset3D = dissolveOff;
-
-                // Sphere-shell intersection: the view ray meets the cloud shell at ndir * shellRadius.
-                // This physically positions the dome — a larger shellRadius places the shell
-                // further away, spreading the noise over a wider area.
-                float3 shellPos = ndir * shellRadius;
-                // Scale 0.0003: spreads noise samples over the shell surface so cloud features
-                // cover the appropriate angular size when viewed from inside the dome.
-                float3 spherePos = shellPos * cloudScale * 0.0003;
-
-                // Flat-plane projection: project the view ray onto a horizontal plane at
-                // shellRadius height. Distributes noise coordinates evenly regardless of
-                // elevation angle, eliminating concentric-ring compression near the zenith.
-                // Clamp ndir.y to 0.1 so t stays finite; below that angle blendFactor≈0
-                // so the flat-plane result is not used anyway.
-                float t = shellRadius / max(ndir.y, 0.1);
-                float3 flatPos = float3(ndir.x * t, 0.0, ndir.z * t) * cloudScale * 0.0003;
-
-                // Blend between sphere (good horizon parallax) and flat-plane (no zenith rings).
-                // Much more aggressive blend: starts almost immediately above horizon,
-                // fully flat-plane by ~20° elevation. pow(x, 0.5) makes it ramp faster.
-                // zenithBlend scales overall influence (0 = full sphere, 1 = full flat-plane overhead).
-                float rawBlend = smoothstep(0.05, 0.35, ndir.y);
-                float blendFactor = pow(rawBlend, 0.5) * zenithBlend;
-                float3 sampleBase = lerp(spherePos, flatPos, blendFactor);
 
                 float3 samplePos = sampleBase + windOffset + dissolveOffset3D;
 
-                // Layer separation: offset per-layer so Layer 1 and Layer 2 read from
-                // entirely different regions of the noise field and look distinct.
+                // Layer separation
                 samplePos += float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
 
-                // Parallax blend for 3D depth: sample the inner shell at 97% radius; blending
-                // the two reads at 0.45 weight creates visible volumetric depth.
-                float3 spherePosInner = ndir * (shellRadius * 0.97) * cloudScale * 0.0003;
-                float tInner = shellRadius * 0.97 / max(ndir.y, 0.1);
-                float3 flatPosInner   = float3(ndir.x * tInner, 0.0, ndir.z * tInner) * cloudScale * 0.0003;
-                float3 sampleBaseInner = lerp(spherePosInner, flatPosInner, blendFactor);
-                float3 sampleInner = sampleBaseInner + windOffset + dissolveOffset3D
+                // Parallax: sample at a slightly lower plane height for depth
+                float t_inner = (shellRadius * 0.92) / max(ndir.y, 0.02);
+                float3 planePosInner = float3(ndir.x * t_inner, 0.0, ndir.z * t_inner);
+                float3 sampleInner = planePosInner * cloudScale * 0.00003 + windOffset + dissolveOffset3D
                                    + float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
-                float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.45);
+                float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.35);
 
-                // Mid-frequency detail — adds billowy texture within cloud masses
+                // Mid-frequency detail
                 float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
                 float detail = FBMFine(detailPos);
 
-                // High-frequency wisps — thin edges and subtle wisp variation
-                // Issue 1 Fix: wisp weight range 0.05–0.25 (was 0.05–0.15) for stronger
-                // edge complexity, especially visible in dense overcast cloud masses.
+                // High-frequency wisps
                 float3 wispPos = samplePos * 5.0 + float3(17.5, 3.2, 11.1);
                 float wisps = FBM(wispPos);
-                float wispW = lerp(0.05, 0.25, saturate(variation));
+
+                // Blend: base shape controls WHERE, detail/wisps add billow character
+                float wispW = lerp(0.05, 0.15, saturate(variation));
                 float cloudNoise = baseShape * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
 
-                // Issue 1 Fix: Extra high-frequency detail octave that scales with coverage.
-                // At low coverage (scattered clouds) this is near-zero so individual clouds
-                // stay clean. At high coverage (overcast) it injects fine surface texture so
-                // dense cloud masses don't look like flat, low-res sheets.
-                float highFreqDetail = FBMFine(samplePos * 4.0) * 0.06 * saturate(coverage - 0.3);
-                cloudNoise += highFreqDetail;
-
-                // Preliminary coverage threshold — used to weight the core detail pass below.
+                // Coverage threshold
                 float cloudMask = cloudNoise - (1.0 - coverage);
                 cloudMask = saturate(cloudMask * sharpness * density);
 
-                // Issue 1 Fix: Core detail — adds visible texture inside dense cloud cores.
-                // Weighted by the preliminary cloudMask so it only appears where cloud mass
-                // already exists, giving interior structure without affecting thin edges.
-                float coreDetail = FBMFine(samplePos * 6.0 + float3(33.7, 11.3, 22.9));
-                cloudNoise += coreDetail * 0.08 * saturate(cloudMask);
-
-                // Final coverage threshold with updated cloudNoise.
-                cloudMask = cloudNoise - (1.0 - coverage);
-                cloudMask = saturate(cloudMask * sharpness * density);
-
-                // edgeSoftness controls smoothstep width: low=hard edges, high=wispy margins.
+                // Edge softness
                 float edgeWidth = max(edgeSoftness * 2.0, 0.15);
                 cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
 
-                // Horizon fade: range scales with shellRadius so the dome edge is physically
-                // pushed toward the horizon as the shell grows. At shellRadius=25000 this
-                // equals the original smoothstep(0.005, 0.08); at shellRadius=80000 it
-                // becomes smoothstep(0.0016, 0.025), effectively invisible near the horizon.
-                float horizonFade = smoothstep(horizonFadeStart, horizonFadeStart * 16.0, ndir.y);
+                // Horizon fade — clouds naturally thin out at shallow angles
+                float horizonFade = smoothstep(0.005, 0.15, ndir.y);
                 cloudMask *= horizonFade;
 
                 return cloudMask;
@@ -744,7 +689,7 @@ Shader "Custom/DayNightSkybox"
                     dir, _CloudShellRadius, _CloudScale, _CloudSpeed,
                     _CloudDirection, _CloudCoverage, _CloudDensity,
                     _CloudSharpness, _Time.y, dissolveOff1,
-                    _CloudEdgeSoftness, _CloudVariation, 0.0, _CloudZenithBlend);
+                    _CloudEdgeSoftness, _CloudVariation, 0.0);
                 density *= heightMask;
 
                 // ── Cloud Layer 2 — high-altitude weather-driven clouds (_Cloud2* properties)
@@ -764,7 +709,7 @@ Shader "Custom/DayNightSkybox"
                             dir, _Cloud2ShellRadius, _Cloud2Scale, _Cloud2Speed,
                             _CloudDirection, _Cloud2Coverage, _Cloud2Density,
                             _Cloud2Sharpness, _Time.y, dissolveOff2,
-                            _CloudEdgeSoftness * 1.5, 0.5, 1.0, _CloudZenithBlend);
+                            _CloudEdgeSoftness * 1.5, 0.5, 1.0);
                         density2 *= heightMask2;
 
                         // Layer 2 color — distinct brightness/darkness conveys altitude and mass
@@ -775,8 +720,10 @@ Shader "Custom/DayNightSkybox"
                         float3 edgeBright2 = litColor2 * lerp(1.2, 1.0, density2);
                         float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, edgeBright2, density2);
                         cloudColor2 = shadowBlend2 * (1.0 - _Cloud2Darkness * (1.0 - density2) * 0.6);
-                        // Subtle low-frequency color variation using 3D noise on the shell surface
-                        float3 colorPos2 = normalize(dir) * _Cloud2ShellRadius * _Cloud2Scale * 0.0003
+                        // Subtle low-frequency color variation using flat-plane projection
+                        float t_color2 = _Cloud2ShellRadius / max(abs(normalize(dir).y), 0.02);
+                        float3 colorPos2 = float3(normalize(dir).x * t_color2, 0.0, normalize(dir).z * t_color2)
+                                         * _Cloud2Scale * 0.00005
                                          + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _Cloud2Speed * _Time.y;
                         float colorVar2 = Noise3D(colorPos2 * 0.4);
                         float colorVarWeight2 = lerp(0.03, 0.01, saturate(density2 - 0.5));
@@ -801,7 +748,9 @@ Shader "Custom/DayNightSkybox"
                 float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, density);
                 float3 cloudColorResult = shadowBlend * (1.0 - _CloudDarkness * (1.0 - density) * 0.6);
                 // Subtle low-frequency color variation — breaks uniform tint across large cloud formations
-                float3 colorPos1 = normalize(dir) * _CloudShellRadius * _CloudScale * 0.0003
+                float t_color1 = _CloudShellRadius / max(abs(normalize(dir).y), 0.02);
+                float3 colorPos1 = float3(normalize(dir).x * t_color1, 0.0, normalize(dir).z * t_color1)
+                                 * _CloudScale * 0.00005
                                  + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _CloudSpeed * _Time.y;
                 float colorVar1 = Noise3D(colorPos1 * 0.4);
                 float colorVarWeight1 = lerp(0.03, 0.01, saturate(density - 0.5));
