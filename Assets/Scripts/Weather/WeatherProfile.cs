@@ -338,6 +338,11 @@ namespace Weather
             cloudEdgeSoftness = 0.18f; cloudVariation = 0.65f;
             volumeInfluence = 0.2f;
             stormRollSpeed = 0.02f;
+            windSpeedBoost = 0f;
+            cloudZenithBlend = 0.4f;
+        }
+
+        [ContextMenu("Preset: Mostly Cloudy")]
         private void PresetMostlyCloudy()
         {
             profileName = "Mostly Cloudy";
@@ -549,3 +554,4 @@ namespace Weather
         }
     }
 }
+
