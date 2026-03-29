@@ -337,12 +337,7 @@ namespace Weather
             cloud2Opacity = 0.40f;
             cloudEdgeSoftness = 0.18f; cloudVariation = 0.65f;
             volumeInfluence = 0.2f;
-            stormRollSpeed = 0.1f;
-            windSpeedBoost = 0f;
-            cloudZenithBlend = 0.4f;
-        }
-
-        [ContextMenu("Preset: Mostly Cloudy")]
+            stormRollSpeed = 0.02f;
         private void PresetMostlyCloudy()
         {
             profileName = "Mostly Cloudy";
@@ -367,7 +362,7 @@ namespace Weather
             cloud2Opacity = 0.50f;
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.6f;
             volumeInfluence = 0.5f;
-            stormRollSpeed = 0.2f;
+            stormRollSpeed = 0.04f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
@@ -397,7 +392,7 @@ namespace Weather
             cloud2Opacity = 0.60f;
             cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
             volumeInfluence = 0.75f;
-            stormRollSpeed = 0.3f;
+            stormRollSpeed = 0.06f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
@@ -427,7 +422,7 @@ namespace Weather
             cloud2Opacity = 0.65f;
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.35f;
             volumeInfluence = 0.85f;
-            stormRollSpeed = 0.4f;
+            stormRollSpeed = 0.08f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
@@ -457,7 +452,7 @@ namespace Weather
             cloud2Opacity = 0.70f;
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
             volumeInfluence = 0.85f;
-            stormRollSpeed = 0.5f;
+            stormRollSpeed = 0.1f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
@@ -487,7 +482,7 @@ namespace Weather
             cloud2Opacity = 0.80f;
             cloudEdgeSoftness = 0.08f; cloudVariation = 0.3f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
-            stormRollSpeed = 1.0f;
+            stormRollSpeed = 0.15f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
@@ -518,7 +513,7 @@ namespace Weather
             cloud2Opacity = 0.40f;
             cloudEdgeSoftness = 0.3f; cloudVariation = 0.2f;
             volumeInfluence = 0.90f;
-            stormRollSpeed = 0.1f;
+            stormRollSpeed = 0.02f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
@@ -548,7 +543,7 @@ namespace Weather
             cloud2Opacity = 0.50f;
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.5f;
             volumeInfluence = 0.6f;
-            stormRollSpeed = 0.3f;
+            stormRollSpeed = 0.06f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }

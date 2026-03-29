@@ -78,6 +78,11 @@ public class WeatherManager : MonoBehaviour
     // Set to true when SetWeather() is called externally; cleared by UnlockWeather().
     private bool _weatherLocked = false;
 
+    // Tracks the last profile reference seen so changes made in the Inspector during
+    // Play mode are detected and trigger a proper transition via SetWeatherInternal().
+    [System.NonSerialized]
+    private Weather.WeatherProfile _lastKnownWeather;
+
     private Material _skyboxMaterial;
     private Volume _weatherVolume;
     private VolumeProfile _runtimeProfile;
@@ -261,10 +266,43 @@ public class WeatherManager : MonoBehaviour
         }
 
         _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
+        _lastKnownWeather = currentWeather;
     }
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (!Application.isPlaying) return;
+        if (Instance != this) return;
+
+        // Detect if the user changed the currentWeather field in the Inspector
+        if (currentWeather != _lastKnownWeather)
+        {
+            _lastKnownWeather = currentWeather;
+            if (currentWeather != null)
+            {
+                Debug.Log($"[WeatherManager] Weather changed via Inspector to: {currentWeather.profileName}. Starting transition...");
+                SetWeatherInternal(currentWeather);
+            }
+        }
+    }
+#endif
 
     void Update()
     {
+        // Detect if the user changed the currentWeather field in the Inspector during Play mode.
+        // OnValidate doesn't always fire reliably for MonoBehaviours, so this Update() check
+        // acts as a runtime safety net.
+        if (currentWeather != _lastKnownWeather)
+        {
+            _lastKnownWeather = currentWeather;
+            if (currentWeather != null)
+            {
+                Debug.Log($"[WeatherManager] Weather profile changed to: {currentWeather.profileName}. Starting transition...");
+                SetWeatherInternal(currentWeather);
+            }
+        }
+
         // Smooth transition
         if (_transitionProgress < 1f)
         {
@@ -276,6 +314,17 @@ public class WeatherManager : MonoBehaviour
                 Vector3 windDir = _sourceWeather.windDirection.normalized;
                 _dissolveOffset.x += windDir.x * _sourceWeather.stormRollSpeed * Time.deltaTime;
                 _dissolveOffset.y += windDir.z * _sourceWeather.stormRollSpeed * Time.deltaTime;
+
+                // Clamp the dissolve offset so it never exceeds a reasonable value in noise
+                // space. Without this cap a long transition at high stormRollSpeed would
+                // push the offset to dozens of units, making clouds appear to race forward.
+                float maxDissolve = 2.0f;
+                float mag = new Vector2(_dissolveOffset.x, _dissolveOffset.y).magnitude;
+                if (mag > maxDissolve)
+                {
+                    _dissolveOffset.x = (_dissolveOffset.x / mag) * maxDissolve;
+                    _dissolveOffset.y = (_dissolveOffset.y / mag) * maxDissolve;
+                }
             }
 
             _transitionProgress += Time.deltaTime / Mathf.Max(0.01f, transitionDuration);
@@ -294,7 +343,7 @@ public class WeatherManager : MonoBehaviour
             // so the cloud pattern returns to its normal steady-state position.
             if (_dissolveOffset.sqrMagnitude > 0.0001f)
             {
-                _dissolveOffset = Vector4.Lerp(_dissolveOffset, Vector4.zero, Time.deltaTime * 0.5f);
+                _dissolveOffset = Vector4.Lerp(_dissolveOffset, Vector4.zero, Time.deltaTime * 2.0f);
                 if (_dissolveOffset.sqrMagnitude < 0.0001f)
                     _dissolveOffset = Vector4.zero;
                 if (_skyboxMaterial != null)
@@ -372,6 +421,7 @@ public class WeatherManager : MonoBehaviour
         _sourceWeather = currentWeather ?? profile;
         _targetWeather = profile;
         currentWeather = profile;
+        _lastKnownWeather = profile;
 
         // Pick a random target coverage within the new profile's diversity range
         _toCoverage = Random.Range(profile.cloudCoverageMin, profile.cloudCoverageMax);

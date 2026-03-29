@@ -975,6 +975,16 @@ Shader "Custom/DayNightSkybox"
                 if (_EnableClouds > 0.5)
                     cloudColor = CalculateClouds(dir, transitionFactor, dayFactor, cloudAlpha);
                 float cloudOcclusion = 1.0 - cloudAlpha;
+                if (_EnableClouds > 0.5)
+                {
+                    // Density-aware sun/moon occlusion:
+                    // _CloudDensity and _CloudDarkness together define cloud optical thickness.
+                    // Dense dark storm clouds block almost all light; thin fair-weather clouds
+                    // let most light through the disc.
+                    float opticalThickness = _CloudDensity * (0.3 + _CloudDarkness * 0.7);
+                    float discOcclusion = saturate(cloudAlpha * opticalThickness);
+                    cloudOcclusion = 1.0 - discOcclusion;
+                }
 
                 // ─── SUN DISC ─────────────────────────────────────
                 if (_EnableSun > 0.5)
