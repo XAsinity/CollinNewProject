@@ -476,8 +476,17 @@ Shader "Custom/DayNightSkybox"
                                    + dissolveOff
                                    + float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
 
-                // ── BASE SHAPE — blend outer and inner shell for parallax depth
-                float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.45);
+                // ── DEEP SHELL PARALLAX (94% radius) — third sample for more volumetric depth
+                float3 deepSpherePos = ndir * (shellRadius * 0.94);
+                float3 deepFlatPos = float3(ndir.x * (t * 0.94), 0.0, ndir.z * (t * 0.94));
+                float3 deepBasePos = lerp(deepSpherePos, deepFlatPos, blendFactor);
+                float3 sampleDeep = deepBasePos * cloudScale * 0.0003
+                                  + windOffset * cloudScale * 0.0003 * windRadiusScale
+                                  + dissolveOff
+                                  + float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
+
+                // ── BASE SHAPE — blend outer, middle, and deep shell for volumetric depth
+                float baseShape = FBM(samplePos) * 0.35 + FBM(sampleInner) * 0.35 + FBM(sampleDeep) * 0.30;
 
                 // ── MID-FREQUENCY DETAIL ────────────────────────────────────
                 float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
