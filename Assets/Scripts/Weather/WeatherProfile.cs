@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Weather
 {
@@ -38,9 +39,11 @@ namespace Weather
         [Tooltip("Maximum cloud coverage — a random value between Min and Max is chosen each transition for variety")]
         public float cloudCoverageMax = 0.05f;
 
+        [FormerlySerializedAs("cloudDensity")]
         [Tooltip("Multiplier on the material's base cloud density (1 = no change, 1.5 = 50% denser)")]
         public float cloudDensityMultiplier = 1f;
 
+        [FormerlySerializedAs("cloudSharpness")]
         [Tooltip("Multiplier on the material's base cloud sharpness (1 = no change, 2 = harder edges)")]
         public float cloudSharpnessMultiplier = 1f;
 
@@ -57,9 +60,11 @@ namespace Weather
         [Tooltip("Color used for the shadowed underside of clouds")]
         public Color cloudShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
 
+        [FormerlySerializedAs("cloudScale")]
         [Tooltip("Multiplier on the material's base cloud scale (1 = no change, 1.4 = 40% larger clouds)")]
         public float cloudScaleMultiplier = 1f;
 
+        [FormerlySerializedAs("cloudSpeed")]
         [Tooltip("Multiplier on the material's base cloud speed (1 = no change, 2 = twice as fast)")]
         public float cloudSpeedMultiplier = 1f;
 
