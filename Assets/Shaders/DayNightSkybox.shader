@@ -149,8 +149,8 @@ Shader "Custom/DayNightSkybox"
         _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
 
         [Header(Cloud Shell Altitude)]
-        _CloudShellRadius ("Cloud Shell Radius", Range(500, 100000)) = 25000.0
-        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 100000)) = 40000.0
+        _CloudShellRadius ("Cloud Shell Radius", Range(500, 200000)) = 80000.0
+        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 200000)) = 120000.0
     }
 
     SubShader
@@ -427,8 +427,16 @@ Shader "Custom/DayNightSkybox"
             {
                 float3 ndir = normalize(worldDir);
 
-                // Below-horizon rays get no clouds
-                if (ndir.y < 0.02) return 0.0;
+                // Physics-based horizon scale: larger shellRadius pushes the dome boundary
+                // closer to the actual horizon (lower elevation angle), making the dome
+                // physically larger and its edge imperceptible. Reference radius 25000
+                // preserves the original smoothstep(0.005, 0.08) behavior at that size.
+                float horizonScale = clamp(25000.0 / shellRadius, 0.1, 2.0);
+                float horizonFadeStart = 0.005 * horizonScale;
+
+                // Below-horizon rays get no clouds; threshold scales with dome size so
+                // large domes allow clouds to extend right to the mathematical horizon.
+                if (ndir.y < horizonFadeStart * 0.1) return 0.0;
 
                 // Linear 3D wind offset: clouds drift in one direction and naturally disappear
                 // at the horizon as shallow-angle rays reach the shell at more distant points.
@@ -441,9 +449,11 @@ Shader "Custom/DayNightSkybox"
                 float3 dissolveOffset3D = dissolveOff;
 
                 // Sphere-shell intersection: the view ray meets the cloud shell at ndir * shellRadius.
+                // This physically positions the dome — a larger shellRadius places the shell
+                // further away, spreading the noise over a wider area.
                 float3 shellPos = ndir * shellRadius;
-                // Scale 0.0003: reduced from 0.001 to spread noise samples over the much larger
-                // shell (10000–15000 radius) so the noise field doesn't visibly tile.
+                // Scale 0.0003: spreads noise samples over the shell surface so cloud features
+                // cover the appropriate angular size when viewed from inside the dome.
                 float3 samplePos = shellPos * cloudScale * 0.0003 + windOffset + dissolveOffset3D;
 
                 // Layer separation: offset per-layer so Layer 1 and Layer 2 read from
@@ -500,9 +510,11 @@ Shader "Custom/DayNightSkybox"
                 float edgeWidth = max(edgeSoftness * 2.0, 0.15);
                 cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
 
-                // Horizon fade: smoothstep(0.005, 0.08) gives an even more gradual fade so
-                // clouds thin out imperceptibly near the horizon with no visible ring cutoff.
-                float horizonFade = smoothstep(0.005, 0.08, ndir.y);
+                // Horizon fade: range scales with shellRadius so the dome edge is physically
+                // pushed toward the horizon as the shell grows. At shellRadius=25000 this
+                // equals the original smoothstep(0.005, 0.08); at shellRadius=80000 it
+                // becomes smoothstep(0.0016, 0.025), effectively invisible near the horizon.
+                float horizonFade = smoothstep(horizonFadeStart, horizonFadeStart * 16.0, ndir.y);
                 cloudMask *= horizonFade;
 
                 return cloudMask;
