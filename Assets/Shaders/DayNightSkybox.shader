@@ -406,10 +406,13 @@ Shader "Custom/DayNightSkybox"
                 return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
             }
 
-            // Compute cloud density for one layer using pure flat-plane projection.
-            // This completely eliminates the concentric ring artifacts that sphere-shell
-            // sampling produces. The view ray is projected onto a horizontal plane at
-            // height shellRadius, distributing noise coordinates evenly across the sky dome.
+            // Compute cloud density for one layer using flat-plane projection with
+            // multi-slice vertical integration for volumetric thickness.
+            //
+            // The flat plane eliminates concentric ring artifacts by projecting the view
+            // ray onto a horizontal plane (shellRadius = altitude).  To restore 3D depth,
+            // we march through several thin slices stacked vertically around that altitude
+            // and accumulate density — giving the clouds real thickness and self-shadowing.
             float CalculateCloudLayer(float3 worldDir, float shellRadius, float cloudScale,
                                       float cloudSpeed, float4 cloudDir, float coverage,
                                       float density, float sharpness, float time,
@@ -421,61 +424,80 @@ Shader "Custom/DayNightSkybox"
                 // Below-horizon rays get no clouds
                 if (ndir.y < 0.005) return 0.0;
 
-                // ── PURE FLAT-PLANE PROJECTION ──
-                // Project the view ray onto a horizontal plane at height shellRadius.
-                // This distributes noise coordinates evenly across the sky dome,
-                // completely eliminating the concentric ring artifacts that sphere-shell
-                // sampling produces.
-                //
-                // For near-horizon rays (small ndir.y), t becomes very large, which is
-                // correct — it stretches the clouds toward the horizon naturally.
-                // Clamping ndir.y to 0.02 prevents extreme values while still allowing
-                // clouds to reach very close to the horizon.
-                float t_plane = shellRadius / max(ndir.y, 0.02);
-                float3 planePos = float3(ndir.x * t_plane, 0.0, ndir.z * t_plane);
+                // ── FLAT-PLANE PROJECTION (XZ positioning — no rings) ──
+                // Project view ray onto a horizontal plane at shellRadius height.
+                // This determines the cloud's horizontal position on the sky dome.
+                float safeY = max(ndir.y, 0.02);
 
-                // Apply noise scale
-                float3 sampleBase = planePos * cloudScale * 0.00003;
-
-                // Wind scrolling in 3D
+                // Wind scrolling
                 float3 windOffset = float3(cloudDir.x, 0.0, cloudDir.z) * cloudSpeed * time;
 
-                // Storm dissolve offset
-                float3 dissolveOffset3D = dissolveOff;
+                // Storm dissolve bias
+                float3 layerOffset = float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
 
-                float3 samplePos = sampleBase + windOffset + dissolveOffset3D;
+                // ── MULTI-SLICE VERTICAL INTEGRATION (3D depth) ──
+                // Sample noise at 5 altitude slices stacked around the shell radius.
+                // Each slice is a flat plane at a slightly different height.
+                // This gives the clouds real volumetric thickness — they look 3D
+                // because each slice contributes differently based on the view angle.
+                //
+                // sliceSpacing controls the physical thickness of the cloud layer.
+                // Larger values = thicker, puffier clouds.
+                float sliceSpacing = shellRadius * 0.04;  // 4% of shell radius per slice
+                float totalDensity = 0.0;
+                float totalWeight = 0.0;
 
-                // Layer separation
-                samplePos += float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
+                // 5 slices: -2, -1, 0, +1, +2 (centered on shellRadius)
+                for (int slice = -2; slice <= 2; slice++)
+                {
+                    float sliceHeight = shellRadius + slice * sliceSpacing;
+                    float t_plane = sliceHeight / safeY;
+                    float3 planePos = float3(ndir.x * t_plane, 0.0, ndir.z * t_plane);
 
-                // Parallax: sample at a slightly lower plane height for depth
-                float t_inner = (shellRadius * 0.92) / max(ndir.y, 0.02);
-                float3 planePosInner = float3(ndir.x * t_inner, 0.0, ndir.z * t_inner);
-                float3 sampleInner = planePosInner * cloudScale * 0.00003 + windOffset + dissolveOffset3D
-                                   + float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
-                float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.35);
+                    // 3D sample position: XZ from flat plane, Y from slice height
+                    // The Y coordinate uses the slice index to separate each layer
+                    // in noise space, creating genuine vertical variation.
+                    float3 samplePos = float3(
+                        planePos.x * cloudScale * 0.00003,
+                        slice * 0.7,  // vertical separation in noise space
+                        planePos.z * cloudScale * 0.00003
+                    ) + windOffset + dissolveOff + layerOffset;
 
-                // Mid-frequency detail
-                float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
-                float detail = FBMFine(detailPos);
+                    // Base shape from FBM
+                    float n = FBM(samplePos);
 
-                // High-frequency wisps
-                float3 wispPos = samplePos * 5.0 + float3(17.5, 3.2, 11.1);
-                float wisps = FBM(wispPos);
+                    // Add mid-frequency detail for billowy internal texture
+                    float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
+                    float detail = FBMFine(detailPos);
 
-                // Blend: base shape controls WHERE, detail/wisps add billow character
-                float wispW = lerp(0.05, 0.15, saturate(variation));
-                float cloudNoise = baseShape * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
+                    // Add high-frequency wisps for edge complexity
+                    float3 wispPos = samplePos * 5.0 + float3(17.5, 3.2, 11.1);
+                    float wisps = FBM(wispPos);
 
-                // Coverage threshold
-                float cloudMask = cloudNoise - (1.0 - coverage);
-                cloudMask = saturate(cloudMask * sharpness * density);
+                    float wispW = lerp(0.05, 0.15, saturate(variation));
+                    float sliceNoise = n * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
+
+                    // Coverage threshold
+                    float sliceMask = sliceNoise - (1.0 - coverage);
+                    sliceMask = saturate(sliceMask * sharpness * density);
+
+                    // Weight each slice — center slice (0) contributes most,
+                    // outer slices contribute less, creating a rounded profile.
+                    // This is what makes the clouds look puffy rather than flat.
+                    float sliceWeight = 1.0 - abs(slice) * 0.25;
+
+                    totalDensity += sliceMask * sliceWeight;
+                    totalWeight += sliceWeight;
+                }
+
+                // Normalize accumulated density
+                float cloudMask = totalDensity / max(totalWeight, 0.001);
 
                 // Edge softness
                 float edgeWidth = max(edgeSoftness * 2.0, 0.15);
                 cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
 
-                // Horizon fade — clouds naturally thin out at shallow angles
+                // Horizon fade — clouds naturally thin out at shallow view angles
                 float horizonFade = smoothstep(0.005, 0.15, ndir.y);
                 cloudMask *= horizonFade;
 
@@ -717,9 +739,10 @@ Shader "Custom/DayNightSkybox"
                         timeColor2 = lerp(timeColor2, _CloudSunsetColor.rgb, sunsetFactor * 0.8);
                         float3 tintedColor2 = timeColor2 * _Cloud2Color.rgb;
                         float3 litColor2 = tintedColor2 * _Cloud2Brightness;
-                        float3 edgeBright2 = litColor2 * lerp(1.2, 1.0, density2);
-                        float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, edgeBright2, density2);
-                        cloudColor2 = shadowBlend2 * (1.0 - _Cloud2Darkness * (1.0 - density2) * 0.6);
+                        float3 edgeBright2 = litColor2 * lerp(1.5, 1.0, density2);
+                        float selfShadow2 = 1.0 - _Cloud2Darkness * density2 * 0.7;
+                        float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, edgeBright2, saturate(density2 * 0.8 + 0.2));
+                        cloudColor2 = shadowBlend2 * selfShadow2;
                         // Subtle low-frequency color variation using flat-plane projection
                         float t_color2 = _Cloud2ShellRadius / max(abs(normalize(dir).y), 0.02);
                         float3 colorPos2 = float3(normalize(dir).x * t_color2, 0.0, normalize(dir).z * t_color2)
@@ -737,16 +760,25 @@ Shader "Custom/DayNightSkybox"
                 if (density < 0.001 && alpha2 < 0.001)
                     return float3(0, 0, 0);
 
-                // ── Layer 1 color
+                // ── Layer 1 color with volumetric self-shadowing
                 float3 timeColor = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
                 timeColor = lerp(timeColor, _CloudSunsetColor.rgb, sunsetFactor * 0.8);
                 float3 tintedColor = timeColor * _CloudColor.rgb;
 
-                // Silver-lining edge brightening fades toward dense cloud cores
+                // Volumetric look: bright tops, dark bases
+                // density close to 1 = deep inside cloud = darker (shadow)
+                // density close to 0 = thin edge = brighter (silver lining)
                 float3 litColor = tintedColor * _CloudBrightness;
-                float3 edgeBright = litColor * lerp(1.35, 1.0, density);
-                float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, density);
-                float3 cloudColorResult = shadowBlend * (1.0 - _CloudDarkness * (1.0 - density) * 0.6);
+
+                // Silver lining on edges (low density = bright rim light)
+                float3 edgeBright = litColor * lerp(1.5, 1.0, density);
+
+                // Self-shadow on dense cores (high density = darker base)
+                float selfShadow = 1.0 - _CloudDarkness * density * 0.7;
+
+                // Blend between shadow color (deep) and lit color (surface)
+                float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, saturate(density * 0.8 + 0.2));
+                float3 cloudColorResult = shadowBlend * selfShadow;
                 // Subtle low-frequency color variation — breaks uniform tint across large cloud formations
                 float t_color1 = _CloudShellRadius / max(abs(normalize(dir).y), 0.02);
                 float3 colorPos1 = float3(normalize(dir).x * t_color1, 0.0, normalize(dir).z * t_color1)
