@@ -151,6 +151,7 @@ Shader "Custom/DayNightSkybox"
         [Header(Cloud Shell Altitude)]
         _CloudShellRadius ("Cloud Shell Radius", Range(500, 200000)) = 80000.0
         _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(500, 200000)) = 120000.0
+        _CloudZenithBlend ("Cloud Zenith Blend", Range(0, 1)) = 0.7
     }
 
     SubShader
@@ -296,6 +297,7 @@ Shader "Custom/DayNightSkybox"
 
             float _CloudShellRadius;
             float _Cloud2ShellRadius;
+            float _CloudZenithBlend;
 
             // ─── STRUCTS ─────────────────────────────────────────────
 
@@ -423,7 +425,7 @@ Shader "Custom/DayNightSkybox"
                                       float cloudSpeed, float4 cloudDir, float coverage,
                                       float density, float sharpness, float time,
                                       float3 dissolveOff, float edgeSoftness,
-                                      float variation, float layerSeed)
+                                      float variation, float layerSeed, float zenithBlend)
             {
                 float3 ndir = normalize(worldDir);
 
@@ -454,23 +456,36 @@ Shader "Custom/DayNightSkybox"
                 float3 shellPos = ndir * shellRadius;
                 // Scale 0.0003: spreads noise samples over the shell surface so cloud features
                 // cover the appropriate angular size when viewed from inside the dome.
-                float3 samplePos = shellPos * cloudScale * 0.0003 + windOffset + dissolveOffset3D;
+                float3 spherePos = shellPos * cloudScale * 0.0003;
+
+                // Flat-plane projection: project the view ray onto a horizontal plane at
+                // shellRadius height. Distributes noise coordinates evenly regardless of
+                // elevation angle, eliminating concentric-ring compression near the zenith.
+                // Clamp ndir.y to 0.1 so t stays finite; below that angle blendFactor≈0
+                // so the flat-plane result is not used anyway.
+                float t = shellRadius / max(ndir.y, 0.1);
+                float3 flatPos = float3(ndir.x * t, 0.0, ndir.z * t) * cloudScale * 0.0003;
+
+                // Blend between sphere (good horizon parallax) and flat-plane (no zenith rings).
+                // At low elevation angles use sphere; at high elevation angles use flat-plane.
+                // zenithBlend scales the blend so 0 = full sphere, 1 = full flat-plane overhead.
+                float blendFactor = smoothstep(0.15, 0.6, ndir.y) * zenithBlend;
+                float3 sampleBase = lerp(spherePos, flatPos, blendFactor);
+
+                float3 samplePos = sampleBase + windOffset + dissolveOffset3D;
 
                 // Layer separation: offset per-layer so Layer 1 and Layer 2 read from
                 // entirely different regions of the noise field and look distinct.
                 samplePos += float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
 
-                // Horizon correction: compensate for shell curvature near the horizon so
-                // clouds at shallow angles aren't stretched wider than overhead clouds.
-                float horizonCorrection = lerp(1.5, 1.0, smoothstep(0.0, 0.3, abs(ndir.y)));
-                samplePos *= horizonCorrection;
-
                 // Parallax blend for 3D depth: sample the inner shell at 97% radius; blending
                 // the two reads at 0.45 weight creates visible volumetric depth.
-                float3 sampleInner = ndir * (shellRadius * 0.97) * cloudScale * 0.0003
-                                   + windOffset + dissolveOffset3D
+                float3 spherePosInner = ndir * (shellRadius * 0.97) * cloudScale * 0.0003;
+                float tInner = shellRadius * 0.97 / max(ndir.y, 0.1);
+                float3 flatPosInner   = float3(ndir.x * tInner, 0.0, ndir.z * tInner) * cloudScale * 0.0003;
+                float3 sampleBaseInner = lerp(spherePosInner, flatPosInner, blendFactor);
+                float3 sampleInner = sampleBaseInner + windOffset + dissolveOffset3D
                                    + float3(layerSeed * 100.0, layerSeed * 50.0, layerSeed * 75.0);
-                sampleInner *= horizonCorrection;
                 float baseShape = lerp(FBM(samplePos), FBM(sampleInner), 0.45);
 
                 // Mid-frequency detail — adds billowy texture within cloud masses
@@ -727,7 +742,7 @@ Shader "Custom/DayNightSkybox"
                     dir, _CloudShellRadius, _CloudScale, _CloudSpeed,
                     _CloudDirection, _CloudCoverage, _CloudDensity,
                     _CloudSharpness, _Time.y, dissolveOff1,
-                    _CloudEdgeSoftness, _CloudVariation, 0.0);
+                    _CloudEdgeSoftness, _CloudVariation, 0.0, _CloudZenithBlend);
                 density *= heightMask;
 
                 // ── Cloud Layer 2 — high-altitude weather-driven clouds (_Cloud2* properties)
@@ -747,7 +762,7 @@ Shader "Custom/DayNightSkybox"
                             dir, _Cloud2ShellRadius, _Cloud2Scale, _Cloud2Speed,
                             _CloudDirection, _Cloud2Coverage, _Cloud2Density,
                             _Cloud2Sharpness, _Time.y, dissolveOff2,
-                            _CloudEdgeSoftness * 1.5, 0.5, 1.0);
+                            _CloudEdgeSoftness * 1.5, 0.5, 1.0, _CloudZenithBlend);
                         density2 *= heightMask2;
 
                         // Layer 2 color — distinct brightness/darkness conveys altitude and mass
