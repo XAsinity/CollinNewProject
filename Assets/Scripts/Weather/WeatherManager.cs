@@ -26,17 +26,17 @@ public class WeatherManager : MonoBehaviour
 
     [Header("Transition")]
     [Tooltip("Duration in seconds to smoothly blend between weather states")]
-    public float transitionDuration = 10f;
+    public float transitionDuration = 45f;
 
     [Header("Auto Weather")]
     [Tooltip("Automatically cycle through random weather conditions over time")]
     public bool autoWeather = false;
 
     [Tooltip("Minimum real-time seconds before auto-weather picks a new condition")]
-    public float minTimeBetweenChanges = 60f;
+    public float minTimeBetweenChanges = 180f;
 
     [Tooltip("Maximum real-time seconds before auto-weather picks a new condition")]
-    public float maxTimeBetweenChanges = 180f;
+    public float maxTimeBetweenChanges = 600f;
 
     [Tooltip("When the active weather profile's max cloud coverage exceeds this value, " +
              "auto-weather will only pick profiles with similarly high coverage so stormy " +
@@ -56,7 +56,7 @@ public class WeatherManager : MonoBehaviour
              "The per-frame cost is very small (a few dozen SetFloat/SetColor calls), but you can " +
              "disable this in shipped builds via code or toggle it off in the Inspector if every " +
              "CPU cycle matters.")]
-    public bool autoRefreshProfile = true;
+    public bool autoRefreshProfile = false;
 
     // ─── PRIVATE STATE ───────────────────────────────────────────────
 
@@ -200,6 +200,8 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_StarBrightness",         1.2f);
             _skyboxMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
             _skyboxMaterial.SetFloat("_CloudZenithBlend",     0.4f);
+            _skyboxMaterial.SetFloat("_CloudShellRadius",     25000f);
+            _skyboxMaterial.SetFloat("_Cloud2ShellRadius",    35000f);
         }
         if (dayNightCycle != null)
         {
@@ -535,7 +537,7 @@ public class WeatherManager : MonoBehaviour
             // ramps proportionally to the transition length instead of a fixed 3 s.
             float boost = Mathf.Lerp(from.windSpeedBoost, to.windSpeedBoost, t);
             float targetCloudSpeed = _baseCloudSpeed * Mathf.Lerp(from.cloudSpeedMultiplier, to.cloudSpeedMultiplier, t) + boost;
-            _currentCloudSpeed = Mathf.SmoothDamp(_currentCloudSpeed, targetCloudSpeed, ref _cloudSpeedVelocity, transitionDuration * 0.5f);
+            _currentCloudSpeed = Mathf.SmoothDamp(_currentCloudSpeed, targetCloudSpeed, ref _cloudSpeedVelocity, transitionDuration * 0.8f);
             _skyboxMaterial.SetFloat("_CloudSpeed", _currentCloudSpeed);
 
             // Atmosphere overrides

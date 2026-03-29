@@ -271,7 +271,7 @@ namespace Weather
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 1f; starVisibilityMultiplier = 1f;
             horizonHazeStrength = 0.15f; horizonHazeHeight = 0.1f; horizonHazeFalloff = 4f;
             cloud2CoverageMin = 0.0f; cloud2CoverageMax = 0.05f;
-            cloud2DensityMultiplier = 0.6f; cloud2SharpnessMultiplier = 0.7f; cloud2ScaleMultiplier = 1.2f; cloud2SpeedMultiplier = 1.1f;
+            cloud2DensityMultiplier = 0.6f; cloud2SharpnessMultiplier = 0.7f; cloud2ScaleMultiplier = 1.2f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 1.0f; cloud2Darkness = 0.30f;
             cloud2Color = new Color(0.95f, 0.95f, 0.98f, 1f); cloud2ShadowColor = new Color(0.45f, 0.45f, 0.50f, 1f);
             cloud2Opacity = 0.30f;
@@ -350,7 +350,7 @@ namespace Weather
             cloudDensityMultiplier = 1.2f; cloudSharpnessMultiplier = 1.1f; cloudBrightness = 0.9f; cloudDarkness = 0.5f;
             cloudColor = new Color(0.85f, 0.85f, 0.88f, 1f);
             cloudShadowColor = new Color(0.28f, 0.28f, 0.34f, 1f);
-            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 1.1f;
+            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 1.0f;
             fogDensityMultiplier = 1.0f; fogColorTint = Color.white; overrideFogColor = false; overrideFogMode = false;
             sunIntensityMultiplier = 0.6f; moonIntensityMultiplier = 0.7f;
             ambientIntensityMultiplier = 0.75f; ambientColorTint = new Color(0.9f, 0.9f, 0.95f, 1f);
@@ -368,7 +368,7 @@ namespace Weather
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.6f;
             volumeInfluence = 0.5f;
             stormRollSpeed = 0.2f;
-            windSpeedBoost = 0.05f;
+            windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
 
@@ -380,7 +380,7 @@ namespace Weather
             cloudDensityMultiplier = 1.4f; cloudSharpnessMultiplier = 1.3f; cloudBrightness = 0.75f; cloudDarkness = 0.6f;
             cloudColor = new Color(0.75f, 0.76f, 0.80f, 1f);
             cloudShadowColor = new Color(0.22f, 0.22f, 0.28f, 1f);
-            cloudScaleMultiplier = 1.2f; cloudSpeedMultiplier = 1.3f;
+            cloudScaleMultiplier = 1.2f; cloudSpeedMultiplier = 1.05f;
             fogDensityMultiplier = 1.5f; fogColorTint = new Color(0.7f, 0.72f, 0.78f, 1f); overrideFogColor = false; overrideFogMode = false;
             sunIntensityMultiplier = 0.35f; moonIntensityMultiplier = 0.4f;
             ambientIntensityMultiplier = 0.55f; ambientColorTint = new Color(0.82f, 0.84f, 0.90f, 1f);
@@ -398,7 +398,7 @@ namespace Weather
             cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
             volumeInfluence = 0.75f;
             stormRollSpeed = 0.3f;
-            windSpeedBoost = 0.1f;
+            windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
 
@@ -410,7 +410,7 @@ namespace Weather
             cloudDensityMultiplier = 1.6f; cloudSharpnessMultiplier = 1.5f; cloudBrightness = 0.65f; cloudDarkness = 0.7f;
             cloudColor = new Color(0.65f, 0.67f, 0.72f, 1f);
             cloudShadowColor = new Color(0.18f, 0.18f, 0.22f, 1f);
-            cloudScaleMultiplier = 1.2f; cloudSpeedMultiplier = 1.3f;
+            cloudScaleMultiplier = 1.2f; cloudSpeedMultiplier = 1.1f;
             fogDensityMultiplier = 2.0f; fogColorTint = new Color(0.62f, 0.64f, 0.70f, 1f); overrideFogColor = false; overrideFogMode = false;
             sunIntensityMultiplier = 0.2f; moonIntensityMultiplier = 0.25f;
             ambientIntensityMultiplier = 0.4f; ambientColorTint = new Color(0.72f, 0.74f, 0.82f, 1f);
@@ -428,7 +428,7 @@ namespace Weather
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.35f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.4f;
-            windSpeedBoost = 0.1f;
+            windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
 
@@ -440,7 +440,7 @@ namespace Weather
             cloudDensityMultiplier = 1.3f; cloudSharpnessMultiplier = 1.2f; cloudBrightness = 0.7f; cloudDarkness = 0.6f;
             cloudColor = new Color(0.58f, 0.61f, 0.68f, 1f);
             cloudShadowColor = new Color(0.20f, 0.21f, 0.26f, 1f);
-            cloudScaleMultiplier = 1.1f; cloudSpeedMultiplier = 1.5f;
+            cloudScaleMultiplier = 1.1f; cloudSpeedMultiplier = 1.1f;
             fogDensityMultiplier = 1.8f; fogColorTint = new Color(0.55f, 0.60f, 0.68f, 1f); overrideFogColor = true; overrideFogMode = false;
             sunIntensityMultiplier = 0.4f; moonIntensityMultiplier = 0.35f;
             ambientIntensityMultiplier = 0.5f; ambientColorTint = new Color(0.68f, 0.72f, 0.82f, 1f);
@@ -451,14 +451,14 @@ namespace Weather
             dayAtmosphereMultiplier = 0.5f; horizonGlowMultiplier = 0.15f; starVisibilityMultiplier = 0.0f;
             horizonHazeStrength = 0.55f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.2f;
             cloud2CoverageMin = 0.3f; cloud2CoverageMax = 0.6f;
-            cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.2f;
+            cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.55f; cloud2Darkness = 0.70f;
             cloud2Color = new Color(0.42f, 0.44f, 0.52f, 1f); cloud2ShadowColor = new Color(0.15f, 0.15f, 0.20f, 1f);
             cloud2Opacity = 0.70f;
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.5f;
-            windSpeedBoost = 0.15f;
+            windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
 
@@ -470,7 +470,7 @@ namespace Weather
             cloudDensityMultiplier = 1.8f; cloudSharpnessMultiplier = 1.8f; cloudBrightness = 0.5f; cloudDarkness = 0.8f;
             cloudColor = new Color(0.40f, 0.42f, 0.48f, 1f);
             cloudShadowColor = new Color(0.12f, 0.12f, 0.16f, 1f);
-            cloudScaleMultiplier = 1.4f; cloudSpeedMultiplier = 2.5f;
+            cloudScaleMultiplier = 1.4f; cloudSpeedMultiplier = 1.2f;
             fogDensityMultiplier = 2.5f; fogColorTint = new Color(0.35f, 0.38f, 0.45f, 1f); overrideFogColor = true; overrideFogMode = false;
             sunIntensityMultiplier = 0.15f; moonIntensityMultiplier = 0.1f;
             ambientIntensityMultiplier = 0.3f; ambientColorTint = new Color(0.55f, 0.58f, 0.68f, 1f);
@@ -481,14 +481,14 @@ namespace Weather
             dayAtmosphereMultiplier = 0.15f; horizonGlowMultiplier = 0.05f; starVisibilityMultiplier = 0.0f;
             horizonHazeStrength = 0.7f; horizonHazeHeight = 0.3f; horizonHazeFalloff = 1.5f;
             cloud2CoverageMin = 0.5f; cloud2CoverageMax = 0.85f;
-            cloud2DensityMultiplier = 1.3f; cloud2SharpnessMultiplier = 1.2f; cloud2ScaleMultiplier = 0.85f; cloud2SpeedMultiplier = 1.5f;
+            cloud2DensityMultiplier = 1.3f; cloud2SharpnessMultiplier = 1.2f; cloud2ScaleMultiplier = 0.85f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.4f; cloud2Darkness = 0.80f;
             cloud2Color = new Color(0.30f, 0.32f, 0.40f, 1f); cloud2ShadowColor = new Color(0.10f, 0.10f, 0.14f, 1f);
             cloud2Opacity = 0.80f;
             cloudEdgeSoftness = 0.08f; cloudVariation = 0.3f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
             stormRollSpeed = 1.0f;
-            windSpeedBoost = 0.3f;
+            windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
 
@@ -512,7 +512,7 @@ namespace Weather
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.3f; starVisibilityMultiplier = 0.0f;
             horizonHazeStrength = 0.9f; horizonHazeHeight = 0.35f; horizonHazeFalloff = 1f;
             cloud2CoverageMin = 0.1f; cloud2CoverageMax = 0.4f;
-            cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.6f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 0.5f;
+            cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.6f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.85f; cloud2Darkness = 0.35f;
             cloud2Color = new Color(0.65f, 0.68f, 0.72f, 1f); cloud2ShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
             cloud2Opacity = 0.40f;
@@ -531,7 +531,7 @@ namespace Weather
             cloudDensityMultiplier = 1.2f; cloudSharpnessMultiplier = 1.1f; cloudBrightness = 1.1f; cloudDarkness = 0.3f;
             cloudColor = new Color(0.92f, 0.94f, 0.98f, 1f);
             cloudShadowColor = new Color(0.60f, 0.62f, 0.70f, 1f);
-            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 0.8f;
+            cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 0.9f;
             fogDensityMultiplier = 1.5f; fogColorTint = new Color(0.85f, 0.88f, 0.95f, 1f); overrideFogColor = false; overrideFogMode = false;
             sunIntensityMultiplier = 0.5f; moonIntensityMultiplier = 0.6f;
             ambientIntensityMultiplier = 0.7f; ambientColorTint = new Color(0.90f, 0.92f, 0.98f, 1f);
@@ -542,14 +542,14 @@ namespace Weather
             dayAtmosphereMultiplier = 0.6f; horizonGlowMultiplier = 0.4f; starVisibilityMultiplier = 0.1f;
             horizonHazeStrength = 0.5f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.5f;
             cloud2CoverageMin = 0.3f; cloud2CoverageMax = 0.65f;
-            cloud2DensityMultiplier = 1.0f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 0.8f;
+            cloud2DensityMultiplier = 1.0f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.95f; cloud2Darkness = 0.25f;
             cloud2Color = new Color(0.72f, 0.74f, 0.78f, 1f); cloud2ShadowColor = new Color(0.30f, 0.30f, 0.35f, 1f);
             cloud2Opacity = 0.50f;
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.5f;
             volumeInfluence = 0.6f;
             stormRollSpeed = 0.3f;
-            windSpeedBoost = 0.05f;
+            windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
         }
     }
