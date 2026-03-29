@@ -455,8 +455,13 @@ Shader "Custom/DayNightSkybox"
                 // Scale into noise-frequency space
                 float3 samplePos = basePos * cloudScale * 0.0003;
 
-                // Apply wind and dissolve offsets
-                samplePos += windOffset * cloudScale * 0.0003;
+                // Apply wind and dissolve offsets.
+                // Normalize wind by the default shell radius (25000) so cloud speed stays
+                // consistent regardless of _CloudShellRadius.  Without this, larger radii
+                // stretch the flat-plane projection while the wind offset stays fixed,
+                // making horizon clouds appear to race.
+                float windRadiusScale = shellRadius / 25000.0;
+                samplePos += windOffset * cloudScale * 0.0003 * windRadiusScale;
                 samplePos += dissolveOff;
 
                 // Layer seed separation — ensures layer 2 samples a different region
@@ -467,7 +472,7 @@ Shader "Custom/DayNightSkybox"
                 float3 innerFlatPos = float3(ndir.x * (t * 0.97), 0.0, ndir.z * (t * 0.97));
                 float3 innerBasePos = lerp(innerSpherePos, innerFlatPos, blendFactor);
                 float3 sampleInner = innerBasePos * cloudScale * 0.0003
-                                   + windOffset * cloudScale * 0.0003
+                                   + windOffset * cloudScale * 0.0003 * windRadiusScale
                                    + dissolveOff
                                    + float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
 
@@ -500,10 +505,15 @@ Shader "Custom/DayNightSkybox"
                     arrivalFactor = lerp(arrivalFactor, dot(ndir.xz, normalize(dissolveDir)), 0.3);
                 // Spread the gradient width using edgeSoftness so the transition is smooth
                 float gradientWidth = lerp(0.8, 2.0, saturate(edgeSoftness));
-                float effectiveCoverage = coverage * smoothstep(-gradientWidth, gradientWidth,
-                                         arrivalFactor + coverage * 2.0 - 1.0);
-                // At full coverage, clamp to original coverage so nothing is clamped away
-                effectiveCoverage = lerp(effectiveCoverage, coverage, saturate(coverage - 0.8) * 5.0);
+                float dirCoverage = coverage * smoothstep(-gradientWidth, gradientWidth,
+                                    arrivalFactor + coverage * 2.0 - 1.0);
+                // Fade out directional bias as coverage increases so that at high coverage
+                // (0.7+) the whole sky fills uniformly rather than leaving the leeward half
+                // cloudless.  Low coverage (0–0.4) keeps the beautiful directional roll-in.
+                // The 0.4→0.7 ramp was chosen so the transition completes well before
+                // coverage reaches "overcast" territory (~0.7) where full-sky fill is expected.
+                float dirBias = 1.0 - smoothstep(0.4, 0.7, coverage);
+                float effectiveCoverage = lerp(coverage, dirCoverage, dirBias);
 
                 // ── PRELIMINARY CLOUD MASK for core detail weighting ────────
                 float prelimMask = saturate((noiseVal - (1.0 - effectiveCoverage)) * sharpness * density);
