@@ -461,16 +461,16 @@ Shader "Custom/DayNightSkybox"
                 blendFactor *= zenithGate;  // restrict to near-pole region
                 float3 basePos = lerp(spherePos, flatPos, blendFactor);
 
+                // Normalize noise coordinates so cloud visual size stays constant
+                // regardless of shell radius. Only the dome geometry changes, not the
+                // apparent cloud scale.
+                float radiusNorm = 25000.0 / max(shellRadius, 1.0);
+
                 // Scale into noise-frequency space
-                float3 samplePos = basePos * cloudScale * 0.0003;
+                float3 samplePos = basePos * radiusNorm * cloudScale * 0.0003;
 
                 // Apply wind and dissolve offsets.
-                // Normalize wind by the default shell radius (25000) so cloud speed stays
-                // consistent regardless of _CloudShellRadius.  Without this, larger radii
-                // stretch the flat-plane projection while the wind offset stays fixed,
-                // making horizon clouds appear to race.
-                float windRadiusScale = shellRadius / 25000.0;
-                samplePos += windOffset * cloudScale * 0.0003 * windRadiusScale;
+                samplePos += windOffset * cloudScale * 0.0003;
                 samplePos += dissolveOff;
 
                 // Layer seed separation — ensures layer 2 samples a different region
@@ -481,8 +481,8 @@ Shader "Custom/DayNightSkybox"
                 innerSpherePos.y *= flattenFactor;
                 float3 innerFlatPos = float3(ndir.x * (t * 0.97), 0.0, ndir.z * (t * 0.97));
                 float3 innerBasePos = lerp(innerSpherePos, innerFlatPos, blendFactor);
-                float3 sampleInner = innerBasePos * cloudScale * 0.0003
-                                   + windOffset * cloudScale * 0.0003 * windRadiusScale
+                float3 sampleInner = innerBasePos * radiusNorm * cloudScale * 0.0003
+                                   + windOffset * cloudScale * 0.0003
                                    + dissolveOff
                                    + float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
 
@@ -491,8 +491,8 @@ Shader "Custom/DayNightSkybox"
                 deepSpherePos.y *= flattenFactor;
                 float3 deepFlatPos = float3(ndir.x * (t * 0.94), 0.0, ndir.z * (t * 0.94));
                 float3 deepBasePos = lerp(deepSpherePos, deepFlatPos, blendFactor);
-                float3 sampleDeep = deepBasePos * cloudScale * 0.0003
-                                  + windOffset * cloudScale * 0.0003 * windRadiusScale
+                float3 sampleDeep = deepBasePos * radiusNorm * cloudScale * 0.0003
+                                  + windOffset * cloudScale * 0.0003
                                   + dissolveOff
                                   + float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
 
