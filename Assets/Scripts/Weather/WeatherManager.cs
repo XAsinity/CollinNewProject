@@ -132,6 +132,10 @@ public class WeatherManager : MonoBehaviour
     private float _currentCloud2Speed;
     private float _cloud2SpeedVelocity;
 
+    // Minimum cloud speed floor — prevents SmoothDamp from driving clouds to a
+    // near-zero speed during profile cross-fades, which would make clouds appear frozen.
+    private const float MIN_CLOUD_SPEED = 0.01f;
+
     // ─── ACTIVE TRANSITION DURATION ──────────────────────────────────
     // Stores the duration in use for the current transition. Bundle rules can override
     // this per-transition without touching the Inspector-serialised transitionDuration field.
@@ -195,6 +199,22 @@ public class WeatherManager : MonoBehaviour
                 _baseCloud2Density = _skyboxMaterial.GetFloat("_Cloud2Density");
             if (_skyboxMaterial.HasProperty("_Cloud2Sharpness"))
                 _baseCloud2Sharpness = _skyboxMaterial.GetFloat("_Cloud2Sharpness");
+
+            // Clamp base values to sane ranges so a corrupted .mat file (e.g. values
+            // accumulated across play-mode sessions) can never produce 56,000x speed
+            // or 235,000x density that makes clouds invisible or hyperfast.
+            // Scale  0.5–50:   prevents microscopic or planet-sized cloud patterns.
+            // Speed  0.01–5:   prevents stopped or supersonic scroll; 0.3 is a typical value.
+            // Density 0.1–5:   prevents transparent or wall-of-cloud extremes; 0.8–1.5 typical.
+            // Sharpness 0.1–10: prevents blurry-blob or razor-edge artifacts; 1.5–3 typical.
+            _baseCloudScale      = Mathf.Clamp(_baseCloudScale,      0.5f, 50f);
+            _baseCloudSpeed      = Mathf.Clamp(_baseCloudSpeed,      0.01f, 5f);
+            _baseCloudDensity    = Mathf.Clamp(_baseCloudDensity,    0.1f,  5f);
+            _baseCloudSharpness  = Mathf.Clamp(_baseCloudSharpness,  0.1f, 10f);
+            _baseCloud2Scale     = Mathf.Clamp(_baseCloud2Scale,     0.5f, 50f);
+            _baseCloud2Speed     = Mathf.Clamp(_baseCloud2Speed,     0.01f, 5f);
+            _baseCloud2Density   = Mathf.Clamp(_baseCloud2Density,   0.1f,  5f);
+            _baseCloud2Sharpness = Mathf.Clamp(_baseCloud2Sharpness, 0.1f, 10f);
         }
 
         // Initialise the smoothed speed trackers to the starting profile's target speed
@@ -414,30 +434,38 @@ public class WeatherManager : MonoBehaviour
             }
         }
 
+        // ─── Continuously accumulate cloud dissolve offset in the current wind direction.
+        // Runs every frame (during and after transitions) so clouds always appear to scroll.
+        // Large offset values are fine — the shader samples noise with tiling/frac,
+        // so UV wrap-around is handled naturally without any magnitude clamping.
+        {
+            bool inTransition = _transitionProgress < 1f;
+            Weather.WeatherProfile fromP = inTransition ? _sourceWeather : currentWeather;
+            Weather.WeatherProfile toP   = inTransition ? _targetWeather  : currentWeather;
+            float blendT = inTransition ? _transitionProgress : 1f;
+
+            Vector3 fromWind = (fromP != null)
+                ? fromP.windDirection.normalized * fromP.windSpeed
+                : Vector3.right;
+            Vector3 toWind = (toP != null)
+                ? toP.windDirection.normalized * toP.windSpeed
+                : Vector3.right;
+            Vector3 windDir = Vector3.Lerp(fromWind, toWind, blendT);
+            // Guard against a zero-magnitude wind vector (e.g. both profiles have no wind).
+            // Fall back to world-right (+X) as a neutral drift direction rather than NaN.
+            if (windDir.sqrMagnitude < 1e-6f) windDir = Vector3.right;
+            windDir = windDir.normalized;
+
+            // Use the current smoothed cloud speed, but never let it drop to MIN_CLOUD_SPEED so
+            // clouds always drift even during cross-profile SmoothDamp transitions.
+            float scrollSpeed = Mathf.Max(_currentCloudSpeed, MIN_CLOUD_SPEED);
+            _dissolveOffset.x += windDir.x * scrollSpeed * Time.deltaTime * debugTimeScale;
+            _dissolveOffset.y += windDir.z * scrollSpeed * Time.deltaTime * debugTimeScale;
+        }
+
         // Smooth transition
         if (_transitionProgress < 1f)
         {
-            // Accumulate directional dissolve offset from the departing weather's storm roll speed.
-            // The offset shifts cloud noise UVs in the source profile's wind direction, making the
-            // departing storm appear to roll away rather than uniformly fading.
-            if (_sourceWeather != null && _sourceWeather.stormRollSpeed > 0f)
-            {
-                Vector3 windDir = _sourceWeather.windDirection.normalized;
-                _dissolveOffset.x += windDir.x * _sourceWeather.stormRollSpeed * Time.deltaTime * debugTimeScale;
-                _dissolveOffset.y += windDir.z * _sourceWeather.stormRollSpeed * Time.deltaTime * debugTimeScale;
-
-                // Clamp the dissolve offset so it never exceeds a reasonable value in noise
-                // space. Without this cap a long transition at high stormRollSpeed would
-                // push the offset to dozens of units, making clouds appear to race forward.
-                float maxDissolve = 4.0f;
-                float mag = new Vector2(_dissolveOffset.x, _dissolveOffset.y).magnitude;
-                if (mag > maxDissolve)
-                {
-                    _dissolveOffset.x = (_dissolveOffset.x / mag) * maxDissolve;
-                    _dissolveOffset.y = (_dissolveOffset.y / mag) * maxDissolve;
-                }
-            }
-
             _transitionProgress += Time.deltaTime * debugTimeScale / Mathf.Max(0.01f, _activeTransitionDuration);
             _transitionProgress = Mathf.Clamp01(_transitionProgress);
 
@@ -467,7 +495,7 @@ public class WeatherManager : MonoBehaviour
         }
         else
         {
-            // After transition: reset incoming dissolve and let departing dissolve decay.
+            // After transition: clear the incoming dissolve (it has already decayed to zero).
             _incomingDissolveOffset = Vector4.zero;
 
             // Auto-refresh: re-apply the active profile every frame so any Inspector edits
@@ -475,16 +503,11 @@ public class WeatherManager : MonoBehaviour
             // new transition. Coverage values are kept stable (no random re-roll).
             if (autoRefreshProfile && currentWeather != null)
                 ApplyWeatherLerp(currentWeather, currentWeather, 1f);
-
-            // Gradually decay the dissolve offset back to zero after the transition completes
-            // so the cloud pattern returns to its normal steady-state position.
-            if (_dissolveOffset.sqrMagnitude > 0.0001f)
+            else if (_skyboxMaterial != null)
             {
-                _dissolveOffset = Vector4.Lerp(_dissolveOffset, Vector4.zero, Time.deltaTime * 2.0f);
-                if (_dissolveOffset.sqrMagnitude < 0.0001f)
-                    _dissolveOffset = Vector4.zero;
-                if (_skyboxMaterial != null)
-                    _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
+                // Not auto-refreshing, but we still need to push the continuously
+                // accumulating dissolve offset to the material every frame.
+                _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
             }
         }
 
@@ -585,10 +608,8 @@ public class WeatherManager : MonoBehaviour
         _toCoverage = Random.Range(profile.cloudCoverageMin, profile.cloudCoverageMax);
         _toCoverage2 = Random.Range(profile.cloud2CoverageMin, profile.cloud2CoverageMax);
 
-        // Reset the dissolve offsets at the start of each transition so each
-        // storm departure begins from a neutral scroll position, and the incoming
-        // roll-in starts at its maximum value.
-        _dissolveOffset = Vector4.zero;
+        // Do NOT reset _dissolveOffset here — it accumulates continuously in the wind
+        // direction every frame so clouds always scroll without snapping back to center.
 
         // Pre-compute the starting incoming dissolve offset for this transition.
         // The offset begins large (in the opposite direction of the target wind) and
@@ -1267,6 +1288,8 @@ public class WeatherManager : MonoBehaviour
                 ref _cloudSpeedVelocity, cloudSmoothTime);
             // Prevent SmoothDamp overshoot — clamp to [0, target * 1.2].
             _currentCloudSpeed = Mathf.Clamp(_currentCloudSpeed, 0f, targetCloudSpeed * 1.2f);
+            // Enforce minimum floor so clouds never appear frozen during transitions.
+            _currentCloudSpeed = Mathf.Max(_currentCloudSpeed, MIN_CLOUD_SPEED);
             _skyboxMaterial.SetFloat("_CloudSpeed", _currentCloudSpeed);
 
             // Atmosphere overrides
@@ -1302,6 +1325,8 @@ public class WeatherManager : MonoBehaviour
             float cloud2SmoothTime = Mathf.Min(cloudSpeedSmoothTime, 10f);
             _currentCloud2Speed = Mathf.SmoothDamp(_currentCloud2Speed, targetCloud2Speed, ref _cloud2SpeedVelocity, cloud2SmoothTime);
             _currentCloud2Speed = Mathf.Clamp(_currentCloud2Speed, 0f, targetCloud2Speed * 1.2f);
+            // Same minimum floor for Layer 2 so high-altitude clouds also keep moving.
+            _currentCloud2Speed = Mathf.Max(_currentCloud2Speed, MIN_CLOUD_SPEED);
             _skyboxMaterial.SetFloat("_Cloud2Speed", _currentCloud2Speed);
             _skyboxMaterial.SetFloat("_Cloud2Brightness", Mathf.Lerp(from.cloud2Brightness, to.cloud2Brightness, t));
             _skyboxMaterial.SetFloat("_Cloud2Darkness",   Mathf.Lerp(from.cloud2Darkness,   to.cloud2Darkness,   t));
