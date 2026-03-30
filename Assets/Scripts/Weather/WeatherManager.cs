@@ -171,16 +171,16 @@ public class WeatherManager : MonoBehaviour
 
         // Initialise the smoothed speed trackers to the starting profile's target speed
         // so there is no ramp-up on the first frame.
-        // Bug 1 fix: both layers start at the same speed so they move in sync.
+        // Each layer uses its own base speed and per-profile multiplier.
         if (currentWeather != null)
         {
-            _currentCloudSpeed  = _baseCloudSpeed * currentWeather.cloudSpeedMultiplier + currentWeather.windSpeedBoost;
-            _currentCloud2Speed = _currentCloudSpeed;
+            _currentCloudSpeed  = _baseCloudSpeed  * currentWeather.cloudSpeedMultiplier  + currentWeather.windSpeedBoost;
+            _currentCloud2Speed = _baseCloud2Speed * currentWeather.cloud2SpeedMultiplier + currentWeather.windSpeedBoost;
         }
         else
         {
             _currentCloudSpeed  = _baseCloudSpeed;
-            _currentCloud2Speed = _baseCloudSpeed;
+            _currentCloud2Speed = _baseCloud2Speed;
         }
 
         SetupVolume();
@@ -1105,18 +1105,16 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetVector("_CloudDirection", new Vector4(windDir.x, windDir.y, windDir.z, 0f));
 
             // Cloud speed — use SmoothDamp so speed changes ramp naturally rather than
-            // snapping on weather transitions. Smooth time is capped at 15s to prevent
+            // snapping on weather transitions. Smooth time is capped at 10s to prevent
             // long transitions from causing overshoot / "supersonic" cloud artifacts.
             float boost = Mathf.Lerp(from.windSpeedBoost, to.windSpeedBoost, t);
             float targetCloudSpeed = _baseCloudSpeed * Mathf.Lerp(from.cloudSpeedMultiplier, to.cloudSpeedMultiplier, t) + boost;
-            float speedSmoothTime = Mathf.Min(transitionDuration * 0.3f, 15f);
+            float cloudSmoothTime = Mathf.Min(transitionDuration * 0.25f, 10f);
             _currentCloudSpeed = Mathf.SmoothDamp(
                 _currentCloudSpeed, targetCloudSpeed,
-                ref _cloudSpeedVelocity, speedSmoothTime);
-            // Prevent SmoothDamp overshoot — never exceed the target by more than 20%,
-            // or 1.5× the baseline speed, whichever is larger.
-            float maxAllowed = Mathf.Max(targetCloudSpeed * 1.2f, _baseCloudSpeed * 1.5f);
-            _currentCloudSpeed = Mathf.Min(_currentCloudSpeed, maxAllowed);
+                ref _cloudSpeedVelocity, cloudSmoothTime);
+            // Prevent SmoothDamp overshoot — clamp to [0, target * 1.2].
+            _currentCloudSpeed = Mathf.Clamp(_currentCloudSpeed, 0f, targetCloudSpeed * 1.2f);
             _skyboxMaterial.SetFloat("_CloudSpeed", _currentCloudSpeed);
 
             // Atmosphere overrides
@@ -1146,10 +1144,12 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_Cloud2Sharpness", _baseCloud2Sharpness * Mathf.Lerp(from.cloud2SharpnessMultiplier, to.cloud2SharpnessMultiplier, t));
             _skyboxMaterial.SetFloat("_Cloud2Scale",     _baseCloud2Scale     * Mathf.Lerp(from.cloud2ScaleMultiplier,     to.cloud2ScaleMultiplier,     t));
 
-            // Bug 1 fix: Layer 2 uses the exact same computed speed as Layer 1 so both
-            // cloud layers move in perfect sync — no more fast white clouds racing ahead
-            // of slow dark ones.
-            _currentCloud2Speed = _currentCloudSpeed;
+            // Cloud Layer 2 speed — independent SmoothDamp using Layer 2's own base
+            // and multipliers. _cloud2SpeedVelocity is never shared with Layer 1.
+            float targetCloud2Speed = _baseCloud2Speed * Mathf.Lerp(from.cloud2SpeedMultiplier, to.cloud2SpeedMultiplier, t) + boost;
+            float cloud2SmoothTime = Mathf.Min(transitionDuration * 0.25f, 10f);
+            _currentCloud2Speed = Mathf.SmoothDamp(_currentCloud2Speed, targetCloud2Speed, ref _cloud2SpeedVelocity, cloud2SmoothTime);
+            _currentCloud2Speed = Mathf.Clamp(_currentCloud2Speed, 0f, targetCloud2Speed * 1.2f);
             _skyboxMaterial.SetFloat("_Cloud2Speed", _currentCloud2Speed);
             _skyboxMaterial.SetFloat("_Cloud2Brightness", Mathf.Lerp(from.cloud2Brightness, to.cloud2Brightness, t));
             _skyboxMaterial.SetFloat("_Cloud2Darkness",   Mathf.Lerp(from.cloud2Darkness,   to.cloud2Darkness,   t));
