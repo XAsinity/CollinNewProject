@@ -503,10 +503,9 @@ Shader "Custom/DayNightSkybox"
                 float noiseVal = baseShape * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
 
                 // ── DIRECTIONAL COVERAGE GRADIENT ──────────────────────────
-                // Clouds grow in from the wind direction rather than fizzling in as
-                // random pixels everywhere simultaneously.  At low coverage only the
-                // windward portion of the sky shows clouds; as coverage increases the
-                // front sweeps across the whole sky.
+                // Subtle directional bias: windward side has slightly higher coverage,
+                // leeward side slightly lower.  Kept at ≤15% influence so clouds are
+                // visible across the normal coverage range (0.25–0.75).
                 float2 windDir2D = normalize(cloudDir.xz + float2(0.0001, 0.0001));
                 float arrivalFactor = dot(ndir.xz, windDir2D); // -1 (leeward) to +1 (windward)
                 // dissolve offset also contributes directional bias during transitions
@@ -514,19 +513,9 @@ Shader "Custom/DayNightSkybox"
                 float dissolveMag = length(dissolveDir);
                 if (dissolveMag > 0.001)
                     arrivalFactor = lerp(arrivalFactor, dot(ndir.xz, normalize(dissolveDir)), 0.3);
-                // Spread the gradient width using edgeSoftness so the transition is smooth
-                float gradientWidth = lerp(1.5, 2.5, saturate(edgeSoftness));
-                float dirCoverage = coverage * smoothstep(-gradientWidth, gradientWidth,
-                                    arrivalFactor + coverage * 2.0 - 1.0);
-                // Fade out directional bias as coverage increases so that at high coverage
-                // (0.7+) the whole sky fills uniformly rather than leaving the leeward half
-                // cloudless.  Low coverage (0–0.4) keeps the beautiful directional roll-in.
-                // At very low coverage (below ~15%) the directional effect is faded in via
-                // smoothstep so clouds appear uniformly instead of only on the narrow windward
-                // edge, preventing the "mini clouds appear and vanish" artifact at transition start.
-                float dirBias = 1.0 - smoothstep(0.25, 0.6, coverage);
-                dirBias *= smoothstep(0.02, 0.15, coverage);
-                float effectiveCoverage = lerp(coverage, dirCoverage, dirBias);
+                // Scale down the directional bias so it's a gentle effect, not a hard gate
+                float directionalBias = arrivalFactor * 0.15;
+                float effectiveCoverage = saturate(coverage * (1.0 + directionalBias));
 
                 // ── PRELIMINARY CLOUD MASK for core detail weighting ────────
                 float prelimMask = saturate((noiseVal - (1.0 - effectiveCoverage)) * sharpness * density);
@@ -747,8 +736,11 @@ Shader "Custom/DayNightSkybox"
             {
                 cloudAlpha = 0.0;
 
-                // Height mask — controls which sky directions show clouds
-                float horizonPush = _CloudHorizonCoverage * saturate(_CloudCoverage * 2.0);
+                // Height mask — controls which sky directions show clouds.
+                // A minimum floor of 0.15 on the coverage factor ensures that even at
+                // low coverage values, horizonPush is large enough for clouds to render
+                // without being altitude-restricted to invisibility.
+                float horizonPush = _CloudHorizonCoverage * max(saturate(_CloudCoverage * 2.0), 0.15);
                 float heightMask = smoothstep(-horizonPush, _CloudHeight + 0.3, dir.y);
                 if (heightMask < 0.001) return float3(0, 0, 0);
 
