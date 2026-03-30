@@ -28,6 +28,12 @@ public class DayNightCycle : MonoBehaviour
     [Tooltip("Assign the material using Custom/DayNightSkybox shader")]
     public Material skyboxMaterial;
 
+    [Header("Cloud Material")]
+    [Tooltip("Assign the material using Custom/VolumetricClouds shader. " +
+             "DayNightCycle pushes _TimeOfDay, _SunDirection and _MoonDirection to this material " +
+             "so the cloud shader can apply time-of-day coloring and light-scattering direction.")]
+    public Material cloudMaterial;
+
     [Header("Ambient Light")]
     public Gradient ambientColor;
     public AnimationCurve ambientIntensity;
@@ -81,6 +87,19 @@ public class DayNightCycle : MonoBehaviour
 
         if (moonLight != null)
             skyboxMaterial.SetVector("_MoonDirection", -moonLight.transform.forward);
+
+        // Push the same time-of-day and light-direction properties to the cloud material
+        // so the VolumetricClouds shader can apply time-of-day coloring and HG light scattering.
+        if (cloudMaterial != null)
+        {
+            cloudMaterial.SetFloat("_TimeOfDay", currentTimeOfDay);
+
+            if (sunLight != null)
+                cloudMaterial.SetVector("_SunDirection", -sunLight.transform.forward);
+
+            if (moonLight != null)
+                cloudMaterial.SetVector("_MoonDirection", -moonLight.transform.forward);
+        }
     }
 
     void UpdateSunLight()

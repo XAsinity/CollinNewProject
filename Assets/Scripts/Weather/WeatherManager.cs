@@ -19,6 +19,11 @@ public class WeatherManager : MonoBehaviour
     [Tooltip("Reference to the scene DayNightCycle component")]
     public DayNightCycle dayNightCycle;
 
+    [Header("Cloud Material")]
+    [Tooltip("Material using the Custom/VolumetricClouds shader. " +
+             "WeatherManager routes all cloud properties here instead of the skybox material.")]
+    public Material cloudMaterial;
+
     [Header("Weather Profiles")]
     [Tooltip("All available weather profiles that can be assigned or randomly selected")]
     public Weather.WeatherProfile[] weatherProfiles;
@@ -184,21 +189,22 @@ public class WeatherManager : MonoBehaviour
 
         // Cache the material's authored base values so weather profiles can
         // multiply them rather than overriding them with their own absolute values.
-        if (_skyboxMaterial != null)
+        // Read from cloudMaterial (the VolumetricClouds material).
+        if (cloudMaterial != null)
         {
-            _baseCloudScale     = _skyboxMaterial.GetFloat("_CloudScale");
-            _baseCloudSpeed     = _skyboxMaterial.GetFloat("_CloudSpeed");
-            _baseCloudDensity   = _skyboxMaterial.GetFloat("_CloudDensity");
-            _baseCloudSharpness = _skyboxMaterial.GetFloat("_CloudSharpness");
+            _baseCloudScale     = cloudMaterial.GetFloat("_CloudScale");
+            _baseCloudSpeed     = cloudMaterial.GetFloat("_CloudSpeed");
+            _baseCloudDensity   = cloudMaterial.GetFloat("_CloudDensity");
+            _baseCloudSharpness = cloudMaterial.GetFloat("_CloudSharpness");
 
-            if (_skyboxMaterial.HasProperty("_Cloud2Scale"))
-                _baseCloud2Scale = _skyboxMaterial.GetFloat("_Cloud2Scale");
-            if (_skyboxMaterial.HasProperty("_Cloud2Speed"))
-                _baseCloud2Speed = _skyboxMaterial.GetFloat("_Cloud2Speed");
-            if (_skyboxMaterial.HasProperty("_Cloud2Density"))
-                _baseCloud2Density = _skyboxMaterial.GetFloat("_Cloud2Density");
-            if (_skyboxMaterial.HasProperty("_Cloud2Sharpness"))
-                _baseCloud2Sharpness = _skyboxMaterial.GetFloat("_Cloud2Sharpness");
+            if (cloudMaterial.HasProperty("_Cloud2Scale"))
+                _baseCloud2Scale = cloudMaterial.GetFloat("_Cloud2Scale");
+            if (cloudMaterial.HasProperty("_Cloud2Speed"))
+                _baseCloud2Speed = cloudMaterial.GetFloat("_Cloud2Speed");
+            if (cloudMaterial.HasProperty("_Cloud2Density"))
+                _baseCloud2Density = cloudMaterial.GetFloat("_Cloud2Density");
+            if (cloudMaterial.HasProperty("_Cloud2Sharpness"))
+                _baseCloud2Sharpness = cloudMaterial.GetFloat("_Cloud2Sharpness");
 
             // Clamp base values to sane ranges so a corrupted .mat file (e.g. values
             // accumulated across play-mode sessions) can never produce 56,000x speed
@@ -239,37 +245,47 @@ public class WeatherManager : MonoBehaviour
         // Bug 2 fix: Always force a full clear-sky baseline on play start so the first
         // frame never inherits stale storm/fog shader values from a previous run.
         // If a starting weather profile is assigned, we then transition into it.
+        // Cloud properties are routed to cloudMaterial; non-cloud properties to _skyboxMaterial.
+        if (cloudMaterial != null)
+        {
+            cloudMaterial.SetFloat("_CloudCoverage",     0f);
+            cloudMaterial.SetFloat("_Cloud2Coverage",    0f);
+            cloudMaterial.SetFloat("_CloudDensity",      _baseCloudDensity);
+            cloudMaterial.SetFloat("_CloudSharpness",    _baseCloudSharpness);
+            cloudMaterial.SetFloat("_CloudScale",        _baseCloudScale);
+            cloudMaterial.SetFloat("_CloudSpeed",        _baseCloudSpeed);
+            cloudMaterial.SetFloat("_CloudEdgeSoftness", 0.35f);
+            cloudMaterial.SetFloat("_CloudVariation",    0.5f);
+            cloudMaterial.SetVector("_CloudDirection",   new Vector4(1f, 0f, 0.5f, 0f));
+            cloudMaterial.SetFloat("_CloudBrightness",   1f);
+            cloudMaterial.SetFloat("_CloudDarkness",     0.3f);
+            cloudMaterial.SetColor("_CloudColor",        new Color(0.95f, 0.95f, 0.95f, 1f));
+            cloudMaterial.SetColor("_CloudShadowColor",  new Color(0.35f, 0.35f, 0.40f, 1f));
+            cloudMaterial.SetFloat("_Cloud2Density",     _baseCloud2Density);
+            cloudMaterial.SetFloat("_Cloud2Sharpness",   _baseCloud2Sharpness);
+            cloudMaterial.SetFloat("_Cloud2Scale",       _baseCloud2Scale);
+            cloudMaterial.SetFloat("_Cloud2Speed",       _baseCloud2Speed);
+            cloudMaterial.SetFloat("_Cloud2Brightness",  1f);
+            cloudMaterial.SetFloat("_Cloud2Darkness",    0.3f);
+            cloudMaterial.SetColor("_Cloud2Color",       new Color(0.96f, 0.96f, 0.98f, 1f));
+            cloudMaterial.SetColor("_Cloud2ShadowColor", new Color(0.50f, 0.52f, 0.58f, 1f));
+            cloudMaterial.SetFloat("_Cloud2Opacity",     0.3f);
+            cloudMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
+        }
+        else
+        {
+            Debug.LogWarning("[WeatherManager] cloudMaterial is not assigned. Cloud properties will not be applied. " +
+                             "Create a material using Custom/VolumetricClouds shader and assign it to the " +
+                             "'Cloud Material' field in the WeatherManager Inspector.");
+        }
         if (_skyboxMaterial != null)
         {
-            _skyboxMaterial.SetFloat("_CloudCoverage",     0f);
-            _skyboxMaterial.SetFloat("_Cloud2Coverage",    0f);
-            _skyboxMaterial.SetFloat("_CloudDensity",      _baseCloudDensity);
-            _skyboxMaterial.SetFloat("_CloudSharpness",    _baseCloudSharpness);
-            _skyboxMaterial.SetFloat("_CloudScale",        _baseCloudScale);
-            _skyboxMaterial.SetFloat("_CloudSpeed",        _baseCloudSpeed);
-            _skyboxMaterial.SetFloat("_CloudEdgeSoftness", 0.35f);
-            _skyboxMaterial.SetFloat("_CloudVariation",    0.5f);
-            _skyboxMaterial.SetVector("_CloudDirection",   new Vector4(1f, 0f, 0.5f, 0f));
-            _skyboxMaterial.SetFloat("_CloudBrightness",   1f);
-            _skyboxMaterial.SetFloat("_CloudDarkness",     0.3f);
-            _skyboxMaterial.SetColor("_CloudColor",        new Color(0.95f, 0.95f, 0.95f, 1f));
-            _skyboxMaterial.SetColor("_CloudShadowColor",  new Color(0.35f, 0.35f, 0.40f, 1f));
-            _skyboxMaterial.SetFloat("_Cloud2Density",     _baseCloud2Density);
-            _skyboxMaterial.SetFloat("_Cloud2Sharpness",   _baseCloud2Sharpness);
-            _skyboxMaterial.SetFloat("_Cloud2Scale",       _baseCloud2Scale);
-            _skyboxMaterial.SetFloat("_Cloud2Speed",       _baseCloud2Speed);
-            _skyboxMaterial.SetFloat("_Cloud2Brightness",  1f);
-            _skyboxMaterial.SetFloat("_Cloud2Darkness",    0.3f);
-            _skyboxMaterial.SetColor("_Cloud2Color",       new Color(0.96f, 0.96f, 0.98f, 1f));
-            _skyboxMaterial.SetColor("_Cloud2ShadowColor", new Color(0.50f, 0.52f, 0.58f, 1f));
-            _skyboxMaterial.SetFloat("_Cloud2Opacity",     0.3f);
             _skyboxMaterial.SetFloat("_DayAtmosphereStrength", 1f);
             _skyboxMaterial.SetFloat("_HorizonGlowStrength",   1f);
             _skyboxMaterial.SetFloat("_HorizonHazeStrength",   0.15f);
             _skyboxMaterial.SetFloat("_HorizonHazeHeight",     0.1f);
             _skyboxMaterial.SetFloat("_HorizonHazeFalloff",    4f);
             _skyboxMaterial.SetFloat("_StarBrightness",         1.2f);
-            _skyboxMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
         }
         if (dayNightCycle != null)
         {
@@ -318,28 +334,32 @@ public class WeatherManager : MonoBehaviour
                 Debug.Log($"[WeatherManager] Auto-selected starting profile anchor: '{anchor.profileName}' (no transition triggered).");
             }
             // Apply a sensible clear-sky default so the first frame is not garbage.
+            // Cloud properties go to cloudMaterial; non-cloud to _skyboxMaterial.
+            if (cloudMaterial != null)
+            {
+                cloudMaterial.SetFloat("_CloudDensity",     _baseCloudDensity);
+                cloudMaterial.SetFloat("_CloudSharpness",   _baseCloudSharpness);
+                cloudMaterial.SetFloat("_CloudScale",       _baseCloudScale);
+                cloudMaterial.SetFloat("_CloudSpeed",       _baseCloudSpeed);
+                cloudMaterial.SetFloat("_CloudEdgeSoftness", 0.35f);
+                cloudMaterial.SetFloat("_CloudVariation",   0.5f);
+                cloudMaterial.SetVector("_CloudDirection",  new Vector4(1f, 0f, 0.5f, 0f));
+                cloudMaterial.SetFloat("_CloudBrightness",  1f);
+                cloudMaterial.SetFloat("_CloudDarkness",    0.3f);
+                cloudMaterial.SetColor("_CloudColor",       new Color(0.95f, 0.95f, 0.95f, 1f));
+                cloudMaterial.SetColor("_CloudShadowColor", new Color(0.35f, 0.35f, 0.40f, 1f));
+                cloudMaterial.SetFloat("_Cloud2Density",    _baseCloud2Density);
+                cloudMaterial.SetFloat("_Cloud2Sharpness",  _baseCloud2Sharpness);
+                cloudMaterial.SetFloat("_Cloud2Scale",      _baseCloud2Scale);
+                cloudMaterial.SetFloat("_Cloud2Speed",      _baseCloud2Speed);
+                cloudMaterial.SetFloat("_Cloud2Brightness", 1f);
+                cloudMaterial.SetFloat("_Cloud2Darkness",   0.3f);
+                cloudMaterial.SetColor("_Cloud2Color",       new Color(0.96f, 0.96f, 0.98f, 1f));
+                cloudMaterial.SetColor("_Cloud2ShadowColor", new Color(0.50f, 0.52f, 0.58f, 1f));
+                cloudMaterial.SetFloat("_Cloud2Opacity",    0.3f);
+            }
             if (_skyboxMaterial != null)
             {
-                _skyboxMaterial.SetFloat("_CloudDensity",     _baseCloudDensity);
-                _skyboxMaterial.SetFloat("_CloudSharpness",   _baseCloudSharpness);
-                _skyboxMaterial.SetFloat("_CloudScale",       _baseCloudScale);
-                _skyboxMaterial.SetFloat("_CloudSpeed",       _baseCloudSpeed);
-                _skyboxMaterial.SetFloat("_CloudEdgeSoftness", 0.35f);
-                _skyboxMaterial.SetFloat("_CloudVariation",   0.5f);
-                _skyboxMaterial.SetVector("_CloudDirection",  new Vector4(1f, 0f, 0.5f, 0f));
-                _skyboxMaterial.SetFloat("_CloudBrightness",  1f);
-                _skyboxMaterial.SetFloat("_CloudDarkness",    0.3f);
-                _skyboxMaterial.SetColor("_CloudColor",       new Color(0.95f, 0.95f, 0.95f, 1f));
-                _skyboxMaterial.SetColor("_CloudShadowColor", new Color(0.35f, 0.35f, 0.40f, 1f));
-                _skyboxMaterial.SetFloat("_Cloud2Density",    _baseCloud2Density);
-                _skyboxMaterial.SetFloat("_Cloud2Sharpness",  _baseCloud2Sharpness);
-                _skyboxMaterial.SetFloat("_Cloud2Scale",      _baseCloud2Scale);
-                _skyboxMaterial.SetFloat("_Cloud2Speed",      _baseCloud2Speed);
-                _skyboxMaterial.SetFloat("_Cloud2Brightness", 1f);
-                _skyboxMaterial.SetFloat("_Cloud2Darkness",   0.3f);
-                _skyboxMaterial.SetColor("_Cloud2Color",       new Color(0.96f, 0.96f, 0.98f, 1f));
-                _skyboxMaterial.SetColor("_Cloud2ShadowColor", new Color(0.50f, 0.52f, 0.58f, 1f));
-                _skyboxMaterial.SetFloat("_Cloud2Opacity",    0.3f);
                 _skyboxMaterial.SetFloat("_DayAtmosphereStrength", 1f);
                 _skyboxMaterial.SetFloat("_HorizonGlowStrength",   1f);
                 _skyboxMaterial.SetFloat("_HorizonHazeStrength",   0.15f);
@@ -499,11 +519,11 @@ public class WeatherManager : MonoBehaviour
             // new transition. Coverage values are kept stable (no random re-roll).
             if (autoRefreshProfile && currentWeather != null)
                 ApplyWeatherLerp(currentWeather, currentWeather, 1f);
-            else if (_skyboxMaterial != null)
+            else if (cloudMaterial != null)
             {
                 // Not auto-refreshing, but we still need to push the continuously
-                // accumulating dissolve offset to the material every frame.
-                _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
+                // accumulating dissolve offset to the cloud material every frame.
+                cloudMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
             }
         }
 
@@ -572,12 +592,12 @@ public class WeatherManager : MonoBehaviour
         if (profile == null) return;
 
         // Capture the current rendered cloud coverage as transition start
-        _fromCoverage = (_skyboxMaterial != null)
-            ? _skyboxMaterial.GetFloat("_CloudCoverage")
+        _fromCoverage = (cloudMaterial != null)
+            ? cloudMaterial.GetFloat("_CloudCoverage")
             : (_sourceWeather != null ? _fromCoverage : 0f);
 
-        _fromCoverage2 = (_skyboxMaterial != null && _skyboxMaterial.HasProperty("_Cloud2Coverage"))
-            ? _skyboxMaterial.GetFloat("_Cloud2Coverage")
+        _fromCoverage2 = (cloudMaterial != null && cloudMaterial.HasProperty("_Cloud2Coverage"))
+            ? cloudMaterial.GetFloat("_Cloud2Coverage")
             : (_sourceWeather != null ? _fromCoverage2 : 0f);
 
         // If a transition is already in progress, reset SmoothDamp velocities so there is
@@ -664,13 +684,13 @@ public class WeatherManager : MonoBehaviour
     {
         if (currentWeather == null) return;
         // Lock in the current rendered coverage so there is no jump
-        if (_skyboxMaterial != null)
+        if (cloudMaterial != null)
         {
-            _fromCoverage  = _skyboxMaterial.GetFloat("_CloudCoverage");
+            _fromCoverage  = cloudMaterial.GetFloat("_CloudCoverage");
             _toCoverage    = _fromCoverage;
-            if (_skyboxMaterial.HasProperty("_Cloud2Coverage"))
+            if (cloudMaterial.HasProperty("_Cloud2Coverage"))
             {
-                _fromCoverage2 = _skyboxMaterial.GetFloat("_Cloud2Coverage");
+                _fromCoverage2 = cloudMaterial.GetFloat("_Cloud2Coverage");
                 _toCoverage2   = _fromCoverage2;
             }
         }
@@ -1170,25 +1190,25 @@ public class WeatherManager : MonoBehaviour
             ? _baseCloud2Speed * Mathf.Lerp(_sourceWeather.cloud2SpeedMultiplier, _targetWeather.cloud2SpeedMultiplier, t) + boost
             : _baseCloud2Speed;
 
-        float coverage   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudCoverage")     : 0f;
-        float density    = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudDensity")      : 0f;
-        float sharpness  = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudSharpness")    : 0f;
-        float scale      = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudScale")        : 0f;
-        float edgeSoft   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudEdgeSoftness") : 0f;
-        float variation  = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudVariation")    : 0f;
-        float brightness = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudBrightness")   : 0f;
-        float darkness   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudDarkness")     : 0f;
+        float coverage   = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudCoverage")     : 0f;
+        float density    = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudDensity")      : 0f;
+        float sharpness  = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudSharpness")    : 0f;
+        float scale      = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudScale")        : 0f;
+        float edgeSoft   = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudEdgeSoftness") : 0f;
+        float variation  = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudVariation")    : 0f;
+        float brightness = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudBrightness")   : 0f;
+        float darkness   = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudDarkness")     : 0f;
 
-        float coverage2   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Coverage")   : 0f;
-        float density2    = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Density")    : 0f;
-        float sharpness2  = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Sharpness")  : 0f;
-        float scale2      = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Scale")      : 0f;
-        float opacity2    = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Opacity")    : 0f;
-        float brightness2 = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Brightness") : 0f;
-        float darkness2   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Darkness")   : 0f;
+        float coverage2   = cloudMaterial != null ? cloudMaterial.GetFloat("_Cloud2Coverage")   : 0f;
+        float density2    = cloudMaterial != null ? cloudMaterial.GetFloat("_Cloud2Density")    : 0f;
+        float sharpness2  = cloudMaterial != null ? cloudMaterial.GetFloat("_Cloud2Sharpness")  : 0f;
+        float scale2      = cloudMaterial != null ? cloudMaterial.GetFloat("_Cloud2Scale")      : 0f;
+        float opacity2    = cloudMaterial != null ? cloudMaterial.GetFloat("_Cloud2Opacity")    : 0f;
+        float brightness2 = cloudMaterial != null ? cloudMaterial.GetFloat("_Cloud2Brightness") : 0f;
+        float darkness2   = cloudMaterial != null ? cloudMaterial.GetFloat("_Cloud2Darkness")   : 0f;
 
-        Vector4 windDir   = _skyboxMaterial != null ? _skyboxMaterial.GetVector("_CloudDirection")  : Vector4.zero;
-        float zenithBlend = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudZenithBlend") : 0f;
+        Vector4 windDir   = cloudMaterial != null ? cloudMaterial.GetVector("_CloudDirection")  : Vector4.zero;
+        float zenithBlend = cloudMaterial != null ? cloudMaterial.GetFloat("_CloudZenithBlend") : 0f;
 
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
         sb.AppendLine($"[WeatherManager:Cloud] Profile: '{srcName}' → '{tgtName}' | Progress: {t * 100f:F1}%");
@@ -1241,28 +1261,28 @@ public class WeatherManager : MonoBehaviour
         float cloudCoverage = Mathf.Lerp(_fromCoverage, _toCoverage, t);
         float cloud2Coverage = Mathf.Lerp(_fromCoverage2, _toCoverage2, t);
 
-        // ── Apply skybox material overrides
-        if (_skyboxMaterial != null)
+        // ── Apply cloud material overrides (all cloud properties → cloudMaterial)
+        if (cloudMaterial != null)
         {
-            _skyboxMaterial.SetFloat("_CloudCoverage", cloudCoverage);
+            cloudMaterial.SetFloat("_CloudCoverage", cloudCoverage);
 
             // Scale/Speed/Density/Sharpness use MULTIPLIERS on the material's base values
             // so the designer's global settings remain the source of truth.
-            _skyboxMaterial.SetFloat("_CloudDensity",
+            cloudMaterial.SetFloat("_CloudDensity",
                 _baseCloudDensity   * Mathf.Lerp(from.cloudDensityMultiplier,   to.cloudDensityMultiplier,   t));
-            _skyboxMaterial.SetFloat("_CloudSharpness",
+            cloudMaterial.SetFloat("_CloudSharpness",
                 _baseCloudSharpness * Mathf.Lerp(from.cloudSharpnessMultiplier, to.cloudSharpnessMultiplier, t));
-            _skyboxMaterial.SetFloat("_CloudScale",
+            cloudMaterial.SetFloat("_CloudScale",
                 _baseCloudScale     * Mathf.Lerp(from.cloudScaleMultiplier,     to.cloudScaleMultiplier,     t));
 
-            _skyboxMaterial.SetFloat("_CloudBrightness", Mathf.Lerp(from.cloudBrightness, to.cloudBrightness, t));
-            _skyboxMaterial.SetFloat("_CloudDarkness",   Mathf.Lerp(from.cloudDarkness,   to.cloudDarkness,   t));
-            _skyboxMaterial.SetColor("_CloudColor",      Color.Lerp(from.cloudColor,      to.cloudColor,      t));
-            _skyboxMaterial.SetColor("_CloudShadowColor", Color.Lerp(from.cloudShadowColor, to.cloudShadowColor, t));
+            cloudMaterial.SetFloat("_CloudBrightness", Mathf.Lerp(from.cloudBrightness, to.cloudBrightness, t));
+            cloudMaterial.SetFloat("_CloudDarkness",   Mathf.Lerp(from.cloudDarkness,   to.cloudDarkness,   t));
+            cloudMaterial.SetColor("_CloudColor",      Color.Lerp(from.cloudColor,      to.cloudColor,      t));
+            cloudMaterial.SetColor("_CloudShadowColor", Color.Lerp(from.cloudShadowColor, to.cloudShadowColor, t));
 
-            _skyboxMaterial.SetFloat("_CloudEdgeSoftness",
+            cloudMaterial.SetFloat("_CloudEdgeSoftness",
                 Mathf.Lerp(from.cloudEdgeSoftness, to.cloudEdgeSoftness, t));
-            _skyboxMaterial.SetFloat("_CloudVariation",
+            cloudMaterial.SetFloat("_CloudVariation",
                 Mathf.Lerp(from.cloudVariation, to.cloudVariation, t));
 
             // Wind direction (magnitude = windSpeed for smooth interpolation;
@@ -1271,7 +1291,7 @@ public class WeatherManager : MonoBehaviour
                 from.windDirection.normalized * from.windSpeed,
                 to.windDirection.normalized   * to.windSpeed,
                 t);
-            _skyboxMaterial.SetVector("_CloudDirection", new Vector4(windDir.x, windDir.y, windDir.z, 0f));
+            cloudMaterial.SetVector("_CloudDirection", new Vector4(windDir.x, windDir.y, windDir.z, 0f));
 
             // Cloud speed — use SmoothDamp so speed changes ramp naturally rather than
             // snapping on weather transitions. Smooth time is capped at 10s to prevent
@@ -1286,8 +1306,38 @@ public class WeatherManager : MonoBehaviour
             _currentCloudSpeed = Mathf.Clamp(_currentCloudSpeed, 0f, targetCloudSpeed * 1.2f);
             // Enforce minimum floor so clouds never appear frozen during transitions.
             _currentCloudSpeed = Mathf.Max(_currentCloudSpeed, MIN_CLOUD_SPEED);
-            _skyboxMaterial.SetFloat("_CloudSpeed", _currentCloudSpeed);
+            cloudMaterial.SetFloat("_CloudSpeed", _currentCloudSpeed);
 
+            // Cloud Layer 2 — higher altitude, uses _Cloud2* shader properties
+            cloudMaterial.SetFloat("_Cloud2Coverage", cloud2Coverage);
+            cloudMaterial.SetFloat("_Cloud2Density",   _baseCloud2Density   * Mathf.Lerp(from.cloud2DensityMultiplier,   to.cloud2DensityMultiplier,   t));
+            cloudMaterial.SetFloat("_Cloud2Sharpness", _baseCloud2Sharpness * Mathf.Lerp(from.cloud2SharpnessMultiplier, to.cloud2SharpnessMultiplier, t));
+            cloudMaterial.SetFloat("_Cloud2Scale",     _baseCloud2Scale     * Mathf.Lerp(from.cloud2ScaleMultiplier,     to.cloud2ScaleMultiplier,     t));
+
+            // Cloud Layer 2 speed — independent SmoothDamp using Layer 2's own base
+            // and multipliers. _cloud2SpeedVelocity is never shared with Layer 1.
+            float targetCloud2Speed = _baseCloud2Speed * Mathf.Lerp(from.cloud2SpeedMultiplier, to.cloud2SpeedMultiplier, t) + boost;
+            float cloud2SmoothTime = Mathf.Min(cloudSpeedSmoothTime, 10f);
+            _currentCloud2Speed = Mathf.SmoothDamp(_currentCloud2Speed, targetCloud2Speed, ref _cloud2SpeedVelocity, cloud2SmoothTime);
+            _currentCloud2Speed = Mathf.Clamp(_currentCloud2Speed, 0f, targetCloud2Speed * 1.2f);
+            // Same minimum floor for Layer 2 so high-altitude clouds also keep moving.
+            _currentCloud2Speed = Mathf.Max(_currentCloud2Speed, MIN_CLOUD_SPEED);
+            cloudMaterial.SetFloat("_Cloud2Speed", _currentCloud2Speed);
+            cloudMaterial.SetFloat("_Cloud2Brightness", Mathf.Lerp(from.cloud2Brightness, to.cloud2Brightness, t));
+            cloudMaterial.SetFloat("_Cloud2Darkness",   Mathf.Lerp(from.cloud2Darkness,   to.cloud2Darkness,   t));
+            cloudMaterial.SetColor("_Cloud2Color",       Color.Lerp(from.cloud2Color,       to.cloud2Color,       t));
+            cloudMaterial.SetColor("_Cloud2ShadowColor", Color.Lerp(from.cloud2ShadowColor, to.cloud2ShadowColor, t));
+            cloudMaterial.SetFloat("_Cloud2Opacity",     Mathf.Lerp(from.cloud2Opacity,     to.cloud2Opacity,     t));
+
+            // Directional dissolve offset — combines the departing storm rolling away
+            // (positive direction) with incoming clouds rolling in from the horizon
+            // (negative direction, decays to zero as transition completes).
+            cloudMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset + _incomingDissolveOffset);
+        }
+
+        // ── Apply skybox material overrides (non-cloud properties only)
+        if (_skyboxMaterial != null)
+        {
             // Atmosphere overrides
             _skyboxMaterial.SetFloat("_DayAtmosphereStrength",
                 Mathf.Lerp(from.dayAtmosphereMultiplier, to.dayAtmosphereMultiplier, t));
@@ -1308,32 +1358,6 @@ public class WeatherManager : MonoBehaviour
                 Mathf.Lerp(from.horizonHazeHeight, to.horizonHazeHeight, t));
             _skyboxMaterial.SetFloat("_HorizonHazeFalloff",
                 Mathf.Lerp(from.horizonHazeFalloff, to.horizonHazeFalloff, t));
-
-            // Cloud Layer 2 — higher altitude, uses _Cloud2* shader properties
-            _skyboxMaterial.SetFloat("_Cloud2Coverage", cloud2Coverage);
-            _skyboxMaterial.SetFloat("_Cloud2Density",   _baseCloud2Density   * Mathf.Lerp(from.cloud2DensityMultiplier,   to.cloud2DensityMultiplier,   t));
-            _skyboxMaterial.SetFloat("_Cloud2Sharpness", _baseCloud2Sharpness * Mathf.Lerp(from.cloud2SharpnessMultiplier, to.cloud2SharpnessMultiplier, t));
-            _skyboxMaterial.SetFloat("_Cloud2Scale",     _baseCloud2Scale     * Mathf.Lerp(from.cloud2ScaleMultiplier,     to.cloud2ScaleMultiplier,     t));
-
-            // Cloud Layer 2 speed — independent SmoothDamp using Layer 2's own base
-            // and multipliers. _cloud2SpeedVelocity is never shared with Layer 1.
-            float targetCloud2Speed = _baseCloud2Speed * Mathf.Lerp(from.cloud2SpeedMultiplier, to.cloud2SpeedMultiplier, t) + boost;
-            float cloud2SmoothTime = Mathf.Min(cloudSpeedSmoothTime, 10f);
-            _currentCloud2Speed = Mathf.SmoothDamp(_currentCloud2Speed, targetCloud2Speed, ref _cloud2SpeedVelocity, cloud2SmoothTime);
-            _currentCloud2Speed = Mathf.Clamp(_currentCloud2Speed, 0f, targetCloud2Speed * 1.2f);
-            // Same minimum floor for Layer 2 so high-altitude clouds also keep moving.
-            _currentCloud2Speed = Mathf.Max(_currentCloud2Speed, MIN_CLOUD_SPEED);
-            _skyboxMaterial.SetFloat("_Cloud2Speed", _currentCloud2Speed);
-            _skyboxMaterial.SetFloat("_Cloud2Brightness", Mathf.Lerp(from.cloud2Brightness, to.cloud2Brightness, t));
-            _skyboxMaterial.SetFloat("_Cloud2Darkness",   Mathf.Lerp(from.cloud2Darkness,   to.cloud2Darkness,   t));
-            _skyboxMaterial.SetColor("_Cloud2Color",       Color.Lerp(from.cloud2Color,       to.cloud2Color,       t));
-            _skyboxMaterial.SetColor("_Cloud2ShadowColor", Color.Lerp(from.cloud2ShadowColor, to.cloud2ShadowColor, t));
-            _skyboxMaterial.SetFloat("_Cloud2Opacity",     Mathf.Lerp(from.cloud2Opacity,     to.cloud2Opacity,     t));
-
-            // Directional dissolve offset — combines the departing storm rolling away
-            // (positive direction) with incoming clouds rolling in from the horizon
-            // (negative direction, decays to zero as transition completes).
-            _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset + _incomingDissolveOffset);
         }
 
         // ── Apply DayNightCycle multipliers
