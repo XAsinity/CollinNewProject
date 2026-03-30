@@ -250,6 +250,18 @@ namespace Weather
                  "1 = storm completely overrides with this profile's bloom/vignette/color values.")]
         public float volumeInfluence = 0f;
 
+        // ─── DURATION ────────────────────────────────────────────────
+
+        [Header("Duration")]
+        [Tooltip("Minimum real-time seconds this weather should persist before transitioning (e.g. 120 = 2 minutes)")]
+        public float minDuration = 120f;
+
+        [Tooltip("Maximum real-time seconds this weather should persist before transitioning (e.g. 600 = 10 minutes)")]
+        public float maxDuration = 600f;
+
+        [Tooltip("Override transition duration for entering this weather (0 = use WeatherManager's global default)")]
+        public float transitionDurationOverride = 0f;
+
         // ─── CONTEXT MENU PRESETS ────────────────────────────────────
 
         [ContextMenu("Preset: Clear")]
@@ -280,14 +292,15 @@ namespace Weather
             stormRollSpeed = 0f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 300f; maxDuration = 3600f; transitionDurationOverride = 0f;
         }
 
         [ContextMenu("Preset: Slightly Cloudy")]
         private void PresetSlightlyCloudy()
         {
             profileName = "Slightly Cloudy";
-            cloudCoverageMin = 0.1f; cloudCoverageMax = 0.25f;
-            cloudDensityMultiplier = 1f; cloudSharpnessMultiplier = 1f; cloudBrightness = 1f; cloudDarkness = 0.35f;
+            cloudCoverageMin = 0.25f; cloudCoverageMax = 0.45f;
+            cloudDensityMultiplier = 1.2f; cloudSharpnessMultiplier = 1f; cloudBrightness = 1f; cloudDarkness = 0.35f;
             cloudColor = new Color(0.95f, 0.95f, 0.95f, 1f);
             cloudShadowColor = new Color(0.35f, 0.35f, 0.40f, 1f);
             cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 1f;
@@ -300,7 +313,7 @@ namespace Weather
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 1f; horizonGlowMultiplier = 0.9f; starVisibilityMultiplier = 0.9f;
             horizonHazeStrength = 0.2f; horizonHazeHeight = 0.11f; horizonHazeFalloff = 3.8f;
-            cloud2CoverageMin = 0.05f; cloud2CoverageMax = 0.15f;
+            cloud2CoverageMin = 0.15f; cloud2CoverageMax = 0.30f;
             cloud2DensityMultiplier = 0.7f; cloud2SharpnessMultiplier = 0.8f; cloud2ScaleMultiplier = 1.1f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 1.0f; cloud2Darkness = 0.35f;
             cloud2Color = new Color(0.90f, 0.90f, 0.93f, 1f); cloud2ShadowColor = new Color(0.40f, 0.40f, 0.45f, 1f);
@@ -310,14 +323,15 @@ namespace Weather
             stormRollSpeed = 0f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 180f; maxDuration = 2100f; transitionDurationOverride = 0f;
         }
 
         [ContextMenu("Preset: Partly Cloudy")]
         private void PresetPartlyCloudy()
         {
             profileName = "Partly Cloudy";
-            cloudCoverageMin = 0.3f; cloudCoverageMax = 0.5f;
-            cloudDensityMultiplier = 1.1f; cloudSharpnessMultiplier = 1f; cloudBrightness = 1f; cloudDarkness = 0.4f;
+            cloudCoverageMin = 0.45f; cloudCoverageMax = 0.65f;
+            cloudDensityMultiplier = 1.3f; cloudSharpnessMultiplier = 1f; cloudBrightness = 1f; cloudDarkness = 0.4f;
             cloudColor = new Color(0.93f, 0.93f, 0.93f, 1f);
             cloudShadowColor = new Color(0.32f, 0.32f, 0.38f, 1f);
             cloudScaleMultiplier = 1f; cloudSpeedMultiplier = 1f;
@@ -330,7 +344,7 @@ namespace Weather
             precipitationType = PrecipitationType.None; precipitationIntensity = 0f;
             dayAtmosphereMultiplier = 0.9f; horizonGlowMultiplier = 0.8f; starVisibilityMultiplier = 0.6f;
             horizonHazeStrength = 0.25f; horizonHazeHeight = 0.12f; horizonHazeFalloff = 3.5f;
-            cloud2CoverageMin = 0.1f; cloud2CoverageMax = 0.3f;
+            cloud2CoverageMin = 0.25f; cloud2CoverageMax = 0.45f;
             cloud2DensityMultiplier = 0.8f; cloud2SharpnessMultiplier = 0.9f; cloud2ScaleMultiplier = 1.0f; cloud2SpeedMultiplier = 1.0f;
             cloud2Brightness = 0.9f; cloud2Darkness = 0.40f;
             cloud2Color = new Color(0.82f, 0.82f, 0.86f, 1f); cloud2ShadowColor = new Color(0.32f, 0.32f, 0.38f, 1f);
@@ -340,6 +354,7 @@ namespace Weather
             stormRollSpeed = 0.02f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 120f; maxDuration = 1800f; transitionDurationOverride = 0f;
         }
 
         [ContextMenu("Preset: Mostly Cloudy")]
@@ -370,6 +385,7 @@ namespace Weather
             stormRollSpeed = 0.04f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 0f;
         }
 
         [ContextMenu("Preset: Overcast")]
@@ -400,6 +416,7 @@ namespace Weather
             stormRollSpeed = 0.06f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 0f;
         }
 
         [ContextMenu("Preset: Super Cloudy")]
@@ -430,6 +447,7 @@ namespace Weather
             stormRollSpeed = 0.08f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 60f; maxDuration = 1200f; transitionDurationOverride = 0f;
         }
 
         [ContextMenu("Preset: Light Rain")]
@@ -460,6 +478,7 @@ namespace Weather
             stormRollSpeed = 0.1f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 0f;
         }
 
         [ContextMenu("Preset: Heavy Storm")]
@@ -490,6 +509,7 @@ namespace Weather
             stormRollSpeed = 0.15f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 60f; maxDuration = 1200f; transitionDurationOverride = 120f;
         }
 
         [ContextMenu("Preset: Fog")]
@@ -521,6 +541,7 @@ namespace Weather
             stormRollSpeed = 0.02f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 90f;
         }
 
         [ContextMenu("Preset: Snow")]
@@ -551,6 +572,7 @@ namespace Weather
             stormRollSpeed = 0.06f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
+            minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 0f;
         }
     }
 }

@@ -41,13 +41,13 @@ public class WeatherManager : MonoBehaviour
     [Tooltip("Automatically cycle through random weather conditions over time")]
     public bool autoWeather = false;
 
-    [Tooltip("Minimum real-time seconds before auto-weather picks a new condition " +
-             "(used when no bundle is assigned; bundle entries supply their own hold times)")]
+    [Tooltip("Fallback minimum seconds before auto-weather picks a new condition. " +
+             "Note: Per-profile duration overrides these global values when set on the WeatherProfile asset.")]
     public float minTimeBetweenChanges = 180f;
 
-    [Tooltip("Maximum real-time seconds before auto-weather picks a new condition " +
-             "(used when no bundle is assigned; bundle entries supply their own hold times)")]
-    public float maxTimeBetweenChanges = 600f;
+    [Tooltip("Fallback maximum seconds before auto-weather picks a new condition. " +
+             "Note: Per-profile duration overrides these global values when set on the WeatherProfile asset.")]
+    public float maxTimeBetweenChanges = 1500f;
 
     [Header("Debug")]
     [Tooltip("Press in Play mode to manually trigger a random weather change")]
@@ -305,7 +305,7 @@ public class WeatherManager : MonoBehaviour
             }
         }
 
-        _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
+        _autoWeatherTimer = SampleHoldTimer(currentWeather);
         _lastKnownWeather = currentWeather;
 
         // Validate timing — warn if transitions would overlap
@@ -324,13 +324,21 @@ public class WeatherManager : MonoBehaviour
     }
 
 #if UNITY_EDITOR
+    private static double _lastValidateLogTime = 0;
     private void OnValidate()
     {
+        // Throttle to at most one log burst every 2 seconds so rapid slider drags
+        // don't flood the Console with repeated warnings.
+        if (UnityEditor.EditorApplication.timeSinceStartup - _lastValidateLogTime < 2.0)
+            return;
+        _lastValidateLogTime = UnityEditor.EditorApplication.timeSinceStartup;
+
         // Warn about unreasonable values regardless of play mode
         if (transitionDuration < 10f)
             Debug.LogWarning("[WeatherManager] transitionDuration is very low. Recommended: 60-120s.");
         if (minTimeBetweenChanges < transitionDuration)
-            Debug.LogWarning("[WeatherManager] minTimeBetweenChanges should be greater than transitionDuration to prevent overlapping transitions.");
+            Debug.LogWarning("[WeatherManager] minTimeBetweenChanges should be greater than transitionDuration to prevent overlapping transitions. " +
+                             "Note: Per-profile duration overrides these global values when set.");
 
         if (!Application.isPlaying) return;
         if (Instance != this) return;
@@ -427,10 +435,6 @@ public class WeatherManager : MonoBehaviour
                     PickBundleWeather();
                 else
                     PickRandomWeather();
-                // Timer is reset inside the pick methods when using a bundle (uses entry hold times),
-                // but we reset it here as a fallback for the no-bundle path.
-                if (presetBundle == null)
-                    _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
             }
         }
 
@@ -501,9 +505,12 @@ public class WeatherManager : MonoBehaviour
         currentWeather = profile;
         _lastKnownWeather = profile;
 
-        // Apply per-transition duration override if provided, otherwise use the global default.
-        // We store it in _activeTransitionDuration rather than overwriting the Inspector field.
-        _activeTransitionDuration = durationOverride >= 0f ? durationOverride : transitionDuration;
+        // Apply per-transition duration override if provided, otherwise check the profile's own
+        // transitionDurationOverride, and finally fall back to the global transitionDuration.
+        float effectiveTransition = (profile.transitionDurationOverride > 0f)
+            ? profile.transitionDurationOverride
+            : transitionDuration;
+        _activeTransitionDuration = durationOverride >= 0f ? durationOverride : effectiveTransition;
 
         // Pick a random target coverage within the new profile's diversity range
         _toCoverage = Random.Range(profile.cloudCoverageMin, profile.cloudCoverageMax);
@@ -624,12 +631,23 @@ public class WeatherManager : MonoBehaviour
     {
         transitionDuration      = 90f;
         minTimeBetweenChanges   = 180f;
-        maxTimeBetweenChanges   = 600f;
+        maxTimeBetweenChanges   = 1500f;
         autoWeather             = true;
         autoRefreshProfile      = false;
         Debug.Log("[WeatherManager] Reset To Recommended Defaults applied: " +
-                  "transitionDuration=90s, minTimeBetweenChanges=180s, maxTimeBetweenChanges=600s, " +
+                  "transitionDuration=90s, minTimeBetweenChanges=180s, maxTimeBetweenChanges=1500s, " +
                   "autoWeather=true, autoRefreshProfile=false.");
+    }
+
+    /// <summary>
+    /// Samples a hold-time for the given profile. Uses the profile's own minDuration/maxDuration
+    /// when set (either > 0), otherwise falls back to the global minTimeBetweenChanges/maxTimeBetweenChanges.
+    /// </summary>
+    private float SampleHoldTimer(Weather.WeatherProfile profile)
+    {
+        if (profile != null && profile.minDuration > 0f && profile.maxDuration > 0f)
+            return Random.Range(profile.minDuration, Mathf.Max(profile.minDuration, profile.maxDuration));
+        return Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
     }
 
     private void PickRandomWeather()
@@ -647,6 +665,8 @@ public class WeatherManager : MonoBehaviour
         }
 
         SetWeatherInternal(next);
+        // Reset hold timer from the new profile's own duration, or fallback to globals.
+        _autoWeatherTimer = SampleHoldTimer(next);
     }
 
     /// <summary>
@@ -678,12 +698,13 @@ public class WeatherManager : MonoBehaviour
             {
                 Debug.LogWarning($"[WeatherManager] Bundle has no entry or transitions for '{currentWeather?.profileName}'. Falling back to lowest-severity profile: '{fallback.profileName}'.");
                 SetWeatherInternal(fallback);
+                _autoWeatherTimer = SampleHoldTimer(fallback);
             }
             else
             {
                 Debug.LogWarning($"[WeatherManager] Bundle has no entry or transitions for '{currentWeather?.profileName}'. No fallback available.");
+                _autoWeatherTimer = SampleHoldTimer(currentWeather);
             }
-            _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
             return;
         }
 
@@ -729,12 +750,13 @@ public class WeatherManager : MonoBehaviour
             {
                 Debug.LogWarning($"[WeatherManager] No valid bundle transitions for '{currentWeather?.profileName}'. Falling back to lowest-severity profile: '{fallback.profileName}'.");
                 SetWeatherInternal(fallback);
+                _autoWeatherTimer = SampleHoldTimer(fallback);
             }
             else
             {
                 Debug.LogWarning($"[WeatherManager] No valid bundle transitions for '{currentWeather?.profileName}'. No fallback available.");
+                _autoWeatherTimer = SampleHoldTimer(currentWeather);
             }
-            _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
             return;
         }
 
@@ -755,11 +777,25 @@ public class WeatherManager : MonoBehaviour
 
         SetWeatherInternal(chosen.target, duration);
 
-        // Set the next timer using the target entry's hold times
+        // Set the next timer: prefer bundle entry's explicit hold time, then profile's own
+        // duration, then fall back to the bundle's global hold time.
         Weather.WeatherBundleEntry targetEntry = presetBundle.FindEntry(chosen.target);
-        float holdMin = targetEntry != null ? targetEntry.GetMinHoldTime(presetBundle) : presetBundle.minimumHoldTime;
-        float holdMax = targetEntry != null ? targetEntry.GetMaxHoldTime(presetBundle) : presetBundle.maximumHoldTime;
-        _autoWeatherTimer = Random.Range(holdMin, holdMax);
+        float holdMin, holdMax;
+        if (targetEntry != null && targetEntry.minHoldTime >= 0f)
+            holdMin = targetEntry.minHoldTime;
+        else if (chosen.target.minDuration > 0f && chosen.target.maxDuration > 0f)
+            holdMin = chosen.target.minDuration;
+        else
+            holdMin = presetBundle.minimumHoldTime;
+
+        if (targetEntry != null && targetEntry.maxHoldTime >= 0f)
+            holdMax = targetEntry.maxHoldTime;
+        else if (chosen.target.minDuration > 0f && chosen.target.maxDuration > 0f)
+            holdMax = chosen.target.maxDuration;
+        else
+            holdMax = presetBundle.maximumHoldTime;
+
+        _autoWeatherTimer = Random.Range(holdMin, Mathf.Max(holdMin, holdMax));
     }
 
     /// <summary>
@@ -789,7 +825,7 @@ public class WeatherManager : MonoBehaviour
         bundle.description            = "Auto-generated default bundle — assign a WeatherPresetBundle asset to customise.";
         bundle.defaultTransitionDuration = 90f;
         bundle.minimumHoldTime        = 120f;
-        bundle.maximumHoldTime        = 480f;
+        bundle.maximumHoldTime        = 1500f;
 
         // Helper: look up a profile by name from the weatherProfiles array
         // Uses case-insensitive exact match first, then Contains as a fuzzy fallback.
@@ -843,18 +879,18 @@ public class WeatherManager : MonoBehaviour
         }
 
         // ── Severity ladder ─────────────────────────────────────────────
-        // | Sev | Profile        | Transitions                                      |
-        // |-----|----------------|--------------------------------------------------|
-        // |  0  | Clear          | → Slightly Cloudy (3.0), → Fog (0.5, nightOnly)  |
-        // |  1  | Slightly Cloudy| → Clear (2.0), → Partly Cloudy (2.0), → Fog(0.3) |
-        // |  1  | Fog            | → Clear (1.5), → Slightly Cloudy (2.0), → PartlyCloudy (0.5) |
-        // |  2  | Partly Cloudy  | → Slightly Cloudy (2.0), → Mostly Cloudy (2.0)   |
-        // |  3  | Mostly Cloudy  | → Partly Cloudy (2.0), → Overcast (2.0), → Snow (0.5) |
-        // |  4  | Overcast       | → Mostly Cloudy (2.0), → Light Rain (2.0), → Super Cloudy (1.0), → Snow (1.0) |
-        // |  5  | Super Cloudy   | → Overcast (2.0), → Light Rain (1.5)             |
-        // |  5  | Light Rain     | → Overcast (2.0), → Super Cloudy (1.0), → Heavy Storm (1.0) |
-        // |  5  | Snow           | → Overcast (2.0), → Mostly Cloudy (1.0)          |
-        // |  6  | Heavy Storm    | → Light Rain (3.0), → Overcast (1.0)             |
+        // | Sev | Profile        | Transitions                                        | Hold (min/max)   |
+        // |-----|----------------|----------------------------------------------------|------------------|
+        // |  0  | Clear          | → Slightly Cloudy (3.0), → Fog (0.5, nightOnly)    | 300–3600s        |
+        // |  1  | Slightly Cloudy| → Clear (2.0), → Partly Cloudy (2.0), → Fog (0.3) | 180–2100s        |
+        // |  1  | Fog            | → Clear (1.5), → Slightly Cloudy (2.0), → PC (0.5)| 120–1500s        |
+        // |  2  | Partly Cloudy  | → Slightly Cloudy (2.0), → Mostly Cloudy (2.0)     | 120–1800s        |
+        // |  3  | Mostly Cloudy  | → Partly Cloudy (2.0), → Overcast (2.0), → Snow   | 120–1500s        |
+        // |  4  | Overcast       | → Mostly Cloudy (2.0), → LightRain (2.0), → SC/Snow| 120–1500s       |
+        // |  5  | Super Cloudy   | → Overcast (2.0), → Light Rain (1.5)               | 60–1200s         |
+        // |  5  | Light Rain     | → Overcast (2.0), → Super Cloudy (1.0), → Storm   | 120–1500s        |
+        // |  5  | Snow           | → Overcast (2.0), → Mostly Cloudy (1.0)            | 120–1500s        |
+        // |  6  | Heavy Storm    | → Light Rain (3.0), → Overcast (1.0)               | 60–1200s         |
 
         bundle.entries = new Weather.WeatherBundleEntry[]
         {
@@ -862,59 +898,59 @@ public class WeatherManager : MonoBehaviour
             {
                 Rule("Slightly Cloudy", 3.0f, 60f),
                 Rule("Fog",             0.5f, 90f, nightOnly: true),
-            }),
+            }, minHold: 300f, maxHold: 3600f),
             Entry("Slightly Cloudy", 1, new[]
             {
                 Rule("Clear",          2.0f, 60f),
                 Rule("Partly Cloudy",  2.0f, 75f),
                 Rule("Fog",            0.3f, 90f),
-            }),
+            }, minHold: 180f, maxHold: 2100f),
             Entry("Fog", 1, new[]
             {
                 Rule("Clear",          1.5f, 75f),
                 Rule("Slightly Cloudy",2.0f, 75f),
                 Rule("Partly Cloudy",  0.5f, 90f),
-            }),
+            }, minHold: 120f, maxHold: 1500f),
             Entry("Partly Cloudy", 2, new[]
             {
                 Rule("Slightly Cloudy",2.0f, 75f),
                 Rule("Mostly Cloudy",  2.0f, 90f),
-            }),
+            }, minHold: 120f, maxHold: 1800f),
             Entry("Mostly Cloudy", 3, new[]
             {
                 Rule("Partly Cloudy",  2.0f, 90f),
                 Rule("Overcast",       2.0f, 90f),
                 Rule("Snow",           0.5f, 120f),
-            }),
+            }, minHold: 120f, maxHold: 1500f),
             Entry("Overcast", 4, new[]
             {
                 Rule("Mostly Cloudy",  2.0f, 90f),
                 Rule("Light Rain",     2.0f, 120f),
                 Rule("Super Cloudy",   1.0f, 90f),
                 Rule("Snow",           1.0f, 120f),
-            }),
+            }, minHold: 120f, maxHold: 1500f),
             Entry("Super Cloudy", 5, new[]
             {
                 Rule("Overcast",       2.0f, 90f),
                 Rule("Light Rain",     1.5f, 120f),
-            }),
+            }, minHold: 60f, maxHold: 1200f),
             Entry("Light Rain", 5, new[]
             {
                 Rule("Overcast",       2.0f, 120f),
                 Rule("Super Cloudy",   1.0f, 90f),
                 Rule("Heavy Storm",    1.0f, 150f),
-            }),
+            }, minHold: 120f, maxHold: 1500f),
             Entry("Snow", 5, new[]
             {
                 Rule("Overcast",       2.0f, 120f),
                 Rule("Mostly Cloudy",  1.0f, 120f),
-            }),
+            }, minHold: 120f, maxHold: 1500f),
             // Heavy Storm can ONLY de-escalate — it never transitions to clear/sunny directly
             Entry("Heavy Storm", 6, new[]
             {
                 Rule("Light Rain",     3.0f, 120f),
                 Rule("Overcast",       1.0f, 150f),
-            }),
+            }, minHold: 60f, maxHold: 1200f),
         };
 
         // Log a warning for any profiles that were not found so the user knows to
