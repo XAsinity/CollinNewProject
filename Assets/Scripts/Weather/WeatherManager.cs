@@ -250,6 +250,28 @@ public class WeatherManager : MonoBehaviour
         else
         {
             Debug.LogWarning("[WeatherManager] No starting weather profile assigned — applying clear-sky defaults.");
+
+            // Auto-assign a starting profile so the bundle system always has a valid anchor.
+            // Priority: (1) "Clear" from weatherProfiles, (2) "Clear" from bundle entries,
+            // (3) first profile in weatherProfiles, (4) first profile in bundle entries.
+            Weather.WeatherProfile anchor = FindClearProfile();
+            if (anchor == null && weatherProfiles != null)
+            {
+                foreach (var p in weatherProfiles)
+                    if (p != null) { anchor = p; break; }
+            }
+            if (anchor == null && presetBundle != null && presetBundle.entries != null)
+            {
+                foreach (var e in presetBundle.entries)
+                    if (e != null && e.profile != null) { anchor = e.profile; break; }
+            }
+
+            if (anchor != null)
+            {
+                currentWeather    = anchor;
+                _lastKnownWeather = anchor;
+                Debug.Log($"[WeatherManager] Auto-selected starting profile anchor: '{anchor.profileName}' (no transition triggered).");
+            }
             // Apply a sensible clear-sky default so the first frame is not garbage.
             if (_skyboxMaterial != null)
             {
@@ -304,6 +326,12 @@ public class WeatherManager : MonoBehaviour
 #if UNITY_EDITOR
     private void OnValidate()
     {
+        // Warn about unreasonable values regardless of play mode
+        if (transitionDuration < 10f)
+            Debug.LogWarning("[WeatherManager] transitionDuration is very low. Recommended: 60-120s.");
+        if (minTimeBetweenChanges < transitionDuration)
+            Debug.LogWarning("[WeatherManager] minTimeBetweenChanges should be greater than transitionDuration to prevent overlapping transitions.");
+
         if (!Application.isPlaying) return;
         if (Instance != this) return;
 
@@ -528,6 +556,82 @@ public class WeatherManager : MonoBehaviour
 
     // ─── PRIVATE HELPERS ─────────────────────────────────────────────
 
+    /// <summary>
+    /// Returns the first profile named "Clear" (case-insensitive, exact then fuzzy Contains)
+    /// found in weatherProfiles or in the presetBundle entries, or null if none found.
+    /// </summary>
+    private Weather.WeatherProfile FindClearProfile()
+    {
+        // 1. Exact case-insensitive match
+        if (weatherProfiles != null)
+        {
+            foreach (var p in weatherProfiles)
+                if (p != null && string.Equals(p.profileName, "Clear", System.StringComparison.OrdinalIgnoreCase))
+                    return p;
+        }
+        if (presetBundle != null && presetBundle.entries != null)
+        {
+            foreach (var e in presetBundle.entries)
+                if (e != null && e.profile != null &&
+                    string.Equals(e.profile.profileName, "Clear", System.StringComparison.OrdinalIgnoreCase))
+                    return e.profile;
+        }
+        // 2. Fuzzy: profile name starts with "Clear" (e.g. "Clear Sky")
+        if (weatherProfiles != null)
+        {
+            foreach (var p in weatherProfiles)
+                if (p != null && p.profileName.IndexOf("Clear", System.StringComparison.OrdinalIgnoreCase) == 0)
+                    return p;
+        }
+        if (presetBundle != null && presetBundle.entries != null)
+        {
+            foreach (var e in presetBundle.entries)
+                if (e != null && e.profile != null &&
+                    e.profile.profileName.IndexOf("Clear", System.StringComparison.OrdinalIgnoreCase) == 0)
+                    return e.profile;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Returns the profile with the lowest severityLevel from the bundle entries.
+    /// If multiple entries share the lowest severity, returns the first one.
+    /// Returns null if the bundle has no valid entries.
+    /// </summary>
+    private Weather.WeatherProfile FindLowestSeverityProfile(Weather.WeatherPresetBundle bundle)
+    {
+        if (bundle == null || bundle.entries == null) return null;
+        Weather.WeatherProfile best = null;
+        int bestSeverity = int.MaxValue;
+        foreach (var e in bundle.entries)
+        {
+            if (e == null || e.profile == null) continue;
+            if (e.severityLevel < bestSeverity)
+            {
+                bestSeverity = e.severityLevel;
+                best = e.profile;
+            }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Resets all timing and auto-weather values to well-tuned game defaults.
+    /// Use this to fix stale Inspector-serialized values from older versions of the component.
+    /// </summary>
+    [ContextMenu("Reset To Recommended Defaults")]
+    private void ResetToRecommendedDefaults()
+    {
+        transitionDuration      = 90f;
+        minTimeBetweenChanges   = 180f;
+        maxTimeBetweenChanges   = 600f;
+        autoWeather             = true;
+        autoRefreshProfile      = false;
+        Debug.Log("[WeatherManager] Reset To Recommended Defaults applied: " +
+                  "transitionDuration=90s, minTimeBetweenChanges=180s, maxTimeBetweenChanges=600s, " +
+                  "autoWeather=true, autoRefreshProfile=false.");
+    }
+
     private void PickRandomWeather()
     {
         if (weatherProfiles == null || weatherProfiles.Length == 0) return;
@@ -547,18 +651,38 @@ public class WeatherManager : MonoBehaviour
 
     /// <summary>
     /// Picks the next weather using the assigned <see cref="Weather.WeatherPresetBundle"/>'s
-    /// transition rules for the current weather.  Falls back to <see cref="PickRandomWeather"/>
+    /// transition rules for the current weather.  Falls back to the lowest-severity profile
     /// if the current weather has no entry or no valid transitions in the bundle.
     /// </summary>
     private void PickBundleWeather()
     {
         if (presetBundle == null) { PickRandomWeather(); return; }
 
+        // Null-safe: if currentWeather is somehow still null, find the lowest-severity bundle entry
+        if (currentWeather == null)
+        {
+            Weather.WeatherProfile lowest = FindLowestSeverityProfile(presetBundle);
+            if (lowest != null)
+            {
+                currentWeather    = lowest;
+                _lastKnownWeather = lowest;
+                Debug.Log($"[WeatherManager] currentWeather was null in PickBundleWeather — anchoring to lowest-severity profile: '{lowest.profileName}'.");
+            }
+        }
+
         Weather.WeatherBundleEntry entry = presetBundle.FindEntry(currentWeather);
         if (entry == null || entry.allowedTransitions == null || entry.allowedTransitions.Length == 0)
         {
-            Debug.LogWarning($"[WeatherManager] Bundle has no entry or transitions for '{currentWeather?.profileName}'. Falling back to random.");
-            PickRandomWeather();
+            Weather.WeatherProfile fallback = FindLowestSeverityProfile(presetBundle);
+            if (fallback != null && fallback != currentWeather)
+            {
+                Debug.LogWarning($"[WeatherManager] Bundle has no entry or transitions for '{currentWeather?.profileName}'. Falling back to lowest-severity profile: '{fallback.profileName}'.");
+                SetWeatherInternal(fallback);
+            }
+            else
+            {
+                Debug.LogWarning($"[WeatherManager] Bundle has no entry or transitions for '{currentWeather?.profileName}'. No fallback available.");
+            }
             _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
             return;
         }
@@ -600,8 +724,16 @@ public class WeatherManager : MonoBehaviour
 
         if (valid.Count == 0)
         {
-            Debug.LogWarning($"[WeatherManager] No valid bundle transitions for '{currentWeather?.profileName}'. Falling back to random.");
-            PickRandomWeather();
+            Weather.WeatherProfile fallback = FindLowestSeverityProfile(presetBundle);
+            if (fallback != null && fallback != currentWeather)
+            {
+                Debug.LogWarning($"[WeatherManager] No valid bundle transitions for '{currentWeather?.profileName}'. Falling back to lowest-severity profile: '{fallback.profileName}'.");
+                SetWeatherInternal(fallback);
+            }
+            else
+            {
+                Debug.LogWarning($"[WeatherManager] No valid bundle transitions for '{currentWeather?.profileName}'. No fallback available.");
+            }
             _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
             return;
         }
@@ -660,11 +792,22 @@ public class WeatherManager : MonoBehaviour
         bundle.maximumHoldTime        = 480f;
 
         // Helper: look up a profile by name from the weatherProfiles array
+        // Uses case-insensitive exact match first, then Contains as a fuzzy fallback.
         Weather.WeatherProfile Find(string name)
         {
             if (weatherProfiles == null) return null;
+            // 1. Exact case-insensitive match
             foreach (var p in weatherProfiles)
-                if (p != null && p.profileName == name) return p;
+                if (p != null && string.Equals(p.profileName, name, System.StringComparison.OrdinalIgnoreCase))
+                    return p;
+            // 2. Fuzzy: profile name Contains the key (e.g. "Clear Sky" matches "Clear")
+            foreach (var p in weatherProfiles)
+                if (p != null && p.profileName.IndexOf(name, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return p;
+            // 3. Fuzzy reverse: key Contains profile name (e.g. "Slightly Cloudy" matches key "Slightly")
+            foreach (var p in weatherProfiles)
+                if (p != null && name.IndexOf(p.profileName, System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    return p;
             return null;
         }
 
