@@ -149,8 +149,9 @@ Shader "Custom/DayNightSkybox"
         _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
 
         [Header(Cloud Shell Altitude)]
-        _CloudShellRadius ("Cloud Shell Radius", Range(10000, 200000)) = 25000.0
-        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(10000, 200000)) = 35000.0
+        _CloudShellRadius ("Cloud Shell Radius", Range(1000, 1000000)) = 25000.0
+        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(1000, 1000000)) = 35000.0
+        _CloudShellFlattening ("Cloud Shell Flattening", Range(0, 1)) = 0.0
         _CloudZenithBlend ("Cloud Zenith Blend", Range(0, 1)) = 0.4
     }
 
@@ -297,6 +298,7 @@ Shader "Custom/DayNightSkybox"
 
             float _CloudShellRadius;
             float _Cloud2ShellRadius;
+            float _CloudShellFlattening;
             float _CloudZenithBlend;
 
             // ─── STRUCTS ─────────────────────────────────────────────
@@ -437,12 +439,14 @@ Shader "Custom/DayNightSkybox"
                 float3 windOffset = float3(cloudDir.x, 0.0, cloudDir.z) * cloudSpeed * time;
 
                 // ── SPHERE-SHELL POSITION ───────────────────────────────────
+                float flattenFactor = 1.0 - _CloudShellFlattening * 0.8; // 0.8 max squash to avoid degeneracy
                 float3 spherePos = ndir * shellRadius;
+                spherePos.y *= flattenFactor;
 
                 // ── FLAT-PLANE PROJECTION ───────────────────────────────────
                 // Project view ray onto horizontal plane at height shellRadius.
                 // This distributes noise evenly and eliminates zenith ring artifacts.
-                float t = shellRadius / max(ndir.y, 0.3);
+                float t = (shellRadius * flattenFactor) / max(ndir.y, 0.3);
                 t = min(t, shellRadius * 3.0);  // never stretch beyond 3x shell radius
                 float3 flatPos = float3(ndir.x * t, 0.0, ndir.z * t);
 
@@ -474,6 +478,7 @@ Shader "Custom/DayNightSkybox"
 
                 // ── INNER SHELL PARALLAX (97% radius) ──────────────────────
                 float3 innerSpherePos = ndir * (shellRadius * 0.97);
+                innerSpherePos.y *= flattenFactor;
                 float3 innerFlatPos = float3(ndir.x * (t * 0.97), 0.0, ndir.z * (t * 0.97));
                 float3 innerBasePos = lerp(innerSpherePos, innerFlatPos, blendFactor);
                 float3 sampleInner = innerBasePos * cloudScale * 0.0003
@@ -483,6 +488,7 @@ Shader "Custom/DayNightSkybox"
 
                 // ── DEEP SHELL PARALLAX (94% radius) — third sample for more volumetric depth
                 float3 deepSpherePos = ndir * (shellRadius * 0.94);
+                deepSpherePos.y *= flattenFactor;
                 float3 deepFlatPos = float3(ndir.x * (t * 0.94), 0.0, ndir.z * (t * 0.94));
                 float3 deepBasePos = lerp(deepSpherePos, deepFlatPos, blendFactor);
                 float3 sampleDeep = deepBasePos * cloudScale * 0.0003
@@ -506,18 +512,12 @@ Shader "Custom/DayNightSkybox"
                 float noiseVal = baseShape * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
 
                 // ── DIRECTIONAL COVERAGE GRADIENT ──────────────────────────
-                // Subtle directional bias: windward side has slightly higher coverage,
-                // leeward side slightly lower.  Kept at ≤15% influence so clouds are
-                // visible across the normal coverage range (0.25–0.75).
+                // Symmetric directional bias: both windward and leeward sides receive
+                // equal influence so the warp is visible across the whole sky.
                 float2 windDir2D = normalize(cloudDir.xz + float2(0.0001, 0.0001));
                 float arrivalFactor = dot(ndir.xz, windDir2D); // -1 (leeward) to +1 (windward)
-                // dissolve offset also contributes directional bias during transitions
-                float2 dissolveDir = dissolveOff.xz;
-                float dissolveMag = length(dissolveDir);
-                if (dissolveMag > 0.001)
-                    arrivalFactor = lerp(arrivalFactor, dot(ndir.xz, normalize(dissolveDir)), 0.3);
                 // Scale down the directional bias so it's a gentle effect, not a hard gate
-                float directionalBias = arrivalFactor * 0.15;
+                float directionalBias = abs(arrivalFactor) * 0.08; // symmetric, reduced strength
                 float effectiveCoverage = saturate(coverage * (1.0 + directionalBias));
 
                 // ── PRELIMINARY CLOUD MASK for core detail weighting ────────

@@ -273,6 +273,7 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_CloudZenithBlend",     0.4f);
             _skyboxMaterial.SetFloat("_CloudShellRadius",     25000f);
             _skyboxMaterial.SetFloat("_Cloud2ShellRadius",    35000f);
+            _skyboxMaterial.SetFloat("_CloudShellFlattening", 0f);
         }
         if (dayNightCycle != null)
         {
