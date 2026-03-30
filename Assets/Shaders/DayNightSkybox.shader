@@ -151,7 +151,7 @@ Shader "Custom/DayNightSkybox"
         [Header(Cloud Shell Altitude)]
         _CloudShellRadius ("Cloud Shell Radius", Range(1000, 1000000)) = 25000.0
         _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(1000, 1000000)) = 35000.0
-        _CloudShellFlattening ("Cloud Shell Flattening", Range(0, 1)) = 0.0
+        _CloudShellFlattening ("Cloud Shell Flattening", Range(0, 10)) = 0.0
         _CloudZenithBlend ("Cloud Zenith Blend", Range(0, 1)) = 0.4
     }
 
