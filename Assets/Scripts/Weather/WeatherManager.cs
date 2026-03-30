@@ -53,6 +53,13 @@ public class WeatherManager : MonoBehaviour
     [Tooltip("Press in Play mode to manually trigger a random weather change")]
     [SerializeField] private bool _debugForceRandomWeather = false;
 
+    [Tooltip("When enabled, logs detailed cloud property values to the Console each frame during transitions " +
+             "and once when a transition completes. Useful for diagnosing cloud speed, coverage, or visual issues.")]
+    [SerializeField] private bool debugLogClouds = false;
+
+    [Tooltip("How often to log cloud debug info during transitions (every N frames). Default: 30 (~0.5s at 60fps).")]
+    [SerializeField] private int debugLogInterval = 30;
+
     [Header("Auto Refresh")]
     [Tooltip("When enabled, the active weather profile's Inspector values are pushed to the shader " +
              "every frame while no transition is running. This means edits made to a WeatherProfile " +
@@ -129,6 +136,10 @@ public class WeatherManager : MonoBehaviour
 
     // Current lerped volume influence (controls _weatherVolume.weight)
     private float _currentVolumeInfluence = 0f;
+
+    // ─── DEBUG LOGGING STATE ─────────────────────────────────────────
+    private bool _debugLoggedCompletion = false;
+    private int  _debugLogFrameCounter  = 0;
 
     // ─── LIFECYCLE ───────────────────────────────────────────────────
 
@@ -398,6 +409,27 @@ public class WeatherManager : MonoBehaviour
             _transitionProgress += Time.deltaTime / Mathf.Max(0.01f, _activeTransitionDuration);
             _transitionProgress = Mathf.Clamp01(_transitionProgress);
             ApplyWeatherLerp(_sourceWeather, _targetWeather, _transitionProgress);
+
+            if (debugLogClouds)
+            {
+                if (_transitionProgress >= 1f)
+                {
+                    if (!_debugLoggedCompletion)
+                    {
+                        _debugLoggedCompletion = true;
+                        LogCloudDebugInfo();
+                    }
+                }
+                else
+                {
+                    _debugLogFrameCounter++;
+                    if (_debugLogFrameCounter >= debugLogInterval)
+                    {
+                        _debugLogFrameCounter = 0;
+                        LogCloudDebugInfo();
+                    }
+                }
+            }
         }
         else
         {
@@ -521,6 +553,15 @@ public class WeatherManager : MonoBehaviour
         _dissolveOffset = Vector4.zero;
 
         _transitionProgress = 0f;
+        _debugLoggedCompletion = false;
+        _debugLogFrameCounter  = 0;
+
+        if (debugLogClouds)
+        {
+            string srcName = _sourceWeather != null ? _sourceWeather.profileName : "none";
+            Debug.Log($"[WeatherManager:Cloud] Transition started: '{srcName}' → '{profile.profileName}' | " +
+                      $"duration={_activeTransitionDuration}s | toCoverage={_toCoverage:F3} | toCoverage2={_toCoverage2:F3}");
+        }
     }
 
     /// <summary>Transitions to a weather profile that matches the given name.</summary>
@@ -1035,6 +1076,58 @@ public class WeatherManager : MonoBehaviour
             if (Application.isPlaying) Destroy(b);
             else DestroyImmediate(b);
         }
+    }
+
+    private void LogCloudDebugInfo()
+    {
+        string srcName = _sourceWeather != null ? _sourceWeather.profileName : "none";
+        string tgtName = _targetWeather != null ? _targetWeather.profileName : "none";
+        float t = _transitionProgress;
+
+        // Compute target speeds (same formula as ApplyWeatherLerp) so we can show target vs smoothed
+        float boost = (_sourceWeather != null && _targetWeather != null)
+            ? Mathf.Lerp(_sourceWeather.windSpeedBoost, _targetWeather.windSpeedBoost, t)
+            : 0f;
+        float targetCloudSpeed = (_sourceWeather != null && _targetWeather != null)
+            ? _baseCloudSpeed  * Mathf.Lerp(_sourceWeather.cloudSpeedMultiplier,  _targetWeather.cloudSpeedMultiplier,  t) + boost
+            : _baseCloudSpeed;
+        float targetCloud2Speed = (_sourceWeather != null && _targetWeather != null)
+            ? _baseCloud2Speed * Mathf.Lerp(_sourceWeather.cloud2SpeedMultiplier, _targetWeather.cloud2SpeedMultiplier, t) + boost
+            : _baseCloud2Speed;
+
+        float coverage   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudCoverage")     : 0f;
+        float density    = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudDensity")      : 0f;
+        float sharpness  = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudSharpness")    : 0f;
+        float scale      = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudScale")        : 0f;
+        float edgeSoft   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudEdgeSoftness") : 0f;
+        float variation  = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudVariation")    : 0f;
+        float brightness = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudBrightness")   : 0f;
+        float darkness   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudDarkness")     : 0f;
+
+        float coverage2   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Coverage")   : 0f;
+        float density2    = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Density")    : 0f;
+        float sharpness2  = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Sharpness")  : 0f;
+        float scale2      = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Scale")      : 0f;
+        float opacity2    = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Opacity")    : 0f;
+        float brightness2 = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Brightness") : 0f;
+        float darkness2   = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_Cloud2Darkness")   : 0f;
+
+        Vector4 windDir   = _skyboxMaterial != null ? _skyboxMaterial.GetVector("_CloudDirection")  : Vector4.zero;
+        float zenithBlend = _skyboxMaterial != null ? _skyboxMaterial.GetFloat("_CloudZenithBlend") : 0f;
+
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        sb.AppendLine($"[WeatherManager:Cloud] Profile: '{srcName}' → '{tgtName}' | Progress: {t * 100f:F1}%");
+        sb.AppendLine($"  Layer1: coverage={coverage:F3}  speed(target={targetCloudSpeed:F4} smoothed={_currentCloudSpeed:F4})" +
+                      $"  density={density:F3}  sharpness={sharpness:F3}  scale={scale:F3}" +
+                      $"  edgeSoftness={edgeSoft:F3}  variation={variation:F3}  brightness={brightness:F3}  darkness={darkness:F3}");
+        sb.AppendLine($"  Layer2: coverage={coverage2:F3}  speed(target={targetCloud2Speed:F4} smoothed={_currentCloud2Speed:F4})" +
+                      $"  density={density2:F3}  sharpness={sharpness2:F3}  scale={scale2:F3}" +
+                      $"  opacity={opacity2:F3}  brightness={brightness2:F3}  darkness={darkness2:F3}");
+        sb.AppendLine($"  Wind: direction=({windDir.x:F3},{windDir.y:F3},{windDir.z:F3})  speedBoost={boost:F4}");
+        sb.AppendLine($"  DissolveOffset=({_dissolveOffset.x:F4},{_dissolveOffset.y:F4})  ZenithBlend={zenithBlend:F3}");
+        sb.AppendLine($"  SmoothDamp velocities: layer1={_cloudSpeedVelocity:F4}  layer2={_cloud2SpeedVelocity:F4}");
+        sb.Append(    $"  VolumeInfluence={_currentVolumeInfluence:F3}");
+        Debug.Log(sb.ToString());
     }
 
     private void SetupVolume()
