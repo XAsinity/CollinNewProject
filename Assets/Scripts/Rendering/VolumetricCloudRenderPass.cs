@@ -13,7 +13,7 @@ using UnityEngine.Rendering.Universal;
 ///   4. Also assign the same material to WeatherManager.cloudMaterial and
 ///      DayNightCycle.cloudMaterial so all properties are routed correctly.
 /// </summary>
-[DisallowMultipleRendererFeature("Volumetric Cloud Renderer Feature")]
+[DisallowMultipleRendererFeature("Volumetric Cloud Render Feature")]
 public class VolumetricCloudRenderFeature : ScriptableRendererFeature
 {
     [Header("Cloud Material")]

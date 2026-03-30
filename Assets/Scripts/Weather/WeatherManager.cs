@@ -275,7 +275,8 @@ public class WeatherManager : MonoBehaviour
         else
         {
             Debug.LogWarning("[WeatherManager] cloudMaterial is not assigned. Cloud properties will not be applied. " +
-                             "Create a material using Custom/VolumetricClouds shader and assign it.");
+                             "Create a material using Custom/VolumetricClouds shader and assign it to the " +
+                             "'Cloud Material' field in the WeatherManager Inspector.");
         }
         if (_skyboxMaterial != null)
         {

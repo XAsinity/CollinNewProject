@@ -69,6 +69,9 @@ Shader "Custom/VolumetricClouds"
             float4x4 _InvProjectionMatrix;
             float4x4 _InvViewMatrix;
 
+            // ─── CONSTANTS ───────────────────────────────────────────────────
+            #define EPSILON 0.0001
+
             // ─── CLOUD LAYER 1 ───────────────────────────────────────────────
             float  _EnableClouds;
             float  _CloudScale;
@@ -225,8 +228,8 @@ Shader "Custom/VolumetricClouds"
                 float noiseVal = baseShape * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
 
                 // Directional coverage gradient: symmetric warp visible on both sides
-                float2 windDir2D = normalize(_CloudDirection.xz + float2(0.0001, 0.0001));
-                float arrivalFactor = dot(normalize(shellPt.xz + float2(0.0001, 0.0001)), windDir2D);
+                float2 windDir2D = normalize(_CloudDirection.xz + float2(EPSILON, EPSILON));
+                float arrivalFactor = dot(normalize(shellPt.xz + float2(EPSILON, EPSILON)), windDir2D);
                 float directionalBias = abs(arrivalFactor) * 0.08;
                 float effectiveCoverage = saturate(coverage * (1.0 + directionalBias));
 
@@ -249,6 +252,11 @@ Shader "Custom/VolumetricClouds"
             // Raymarches NUM_STEPS shells from shellOuter to shellInner, accumulating
             // density with Beer-Lambert transmittance. Returns (rgb, alpha).
 
+            // NUM_STEPS_L1: 32 steps for the primary (lower-altitude) cloud layer.
+            //               More steps give better depth and self-shadow quality.
+            // NUM_STEPS_L2: 24 steps for the secondary (higher-altitude) layer.
+            //               Higher-altitude cirrus-like clouds are typically thinner and
+            //               need fewer steps, providing a small performance saving.
             #define NUM_STEPS_L1 32
             #define NUM_STEPS_L2 24
 
