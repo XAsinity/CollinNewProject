@@ -450,8 +450,11 @@ Shader "Custom/DayNightSkybox"
                 // At low elevations (horizon) use mostly sphere-shell for depth.
                 // At high elevations (near zenith) blend toward flat-plane to
                 // eliminate ring artifacts that appear directly overhead.
+                float zenithGate = smoothstep(0.7, 0.95, ndir.y);  // only blend near the pole
                 float rawBlend = saturate(ndir.y * zenithBlend * 2.0);
-                float blendFactor = rawBlend * rawBlend;  // quadratic falloff
+                // Perlin smootherstep for tighter transition
+                float blendFactor = rawBlend * rawBlend * rawBlend * (rawBlend * (rawBlend * 6.0 - 15.0) + 10.0);
+                blendFactor *= zenithGate;  // restrict to near-pole region
                 float3 basePos = lerp(spherePos, flatPos, blendFactor);
 
                 // Scale into noise-frequency space
@@ -998,7 +1001,12 @@ Shader "Custom/DayNightSkybox"
 
                 // ─── PROCEDURAL CLOUDS — composite ────────────────
                 if (_EnableClouds > 0.5)
+                {
+                    // Dim background sky (stars, nebula, aurora, dust) behind dense clouds
+                    // so they don't bleed through at high cloud coverage.
+                    col *= lerp(1.0, 0.05, saturate(cloudAlpha * 1.5));
                     col = lerp(col, cloudColor, cloudAlpha);
+                }
                 // ─── HORIZON HAZE ─────────────────────────────────────────
                 // Haze color is derived automatically from sky + cloud colors, adapting
                 // to both time of day and active weather — no separate color property needed.
