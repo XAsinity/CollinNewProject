@@ -42,27 +42,6 @@ Shader "Custom/DayNightSkybox"
         _MoonGlowSize ("Moon Glow Size", Range(0.01, 0.3)) = 0.1
         _MoonGlowStrength ("Moon Glow Strength", Range(0, 1.5)) = 0.3
 
-        [Header(Procedural Clouds)]
-        _EnableClouds ("Enable Clouds", Float) = 1
-        _CloudScale ("Cloud Scale", Range(1, 20)) = 5.0
-        _CloudSpeed ("Cloud Speed", Range(0, 2)) = 0.3
-        _CloudDirection ("Cloud Wind Direction", Vector) = (1, 0, 0.5, 0)
-        _CloudDensity ("Cloud Density", Range(0, 2)) = 1.0
-        _CloudSharpness ("Cloud Sharpness", Range(0.1, 5.0)) = 1.5
-        _CloudHeight ("Cloud Height Bias", Range(-0.5, 0.8)) = 0.2
-        _CloudDayColor ("Cloud Day Color", Color) = (0.95, 0.95, 0.95, 1)
-        _CloudNightColor ("Cloud Night Color", Color) = (0.05, 0.05, 0.1, 1)
-        _CloudSunsetColor ("Cloud Sunset Color", Color) = (1.0, 0.5, 0.2, 1)
-        _CloudAlpha ("Cloud Opacity", Range(0, 1)) = 0.8
-        _CloudCoverage ("Cloud Coverage", Range(0, 1)) = 0.5
-        _CloudBrightness ("Cloud Brightness", Range(0, 2)) = 1.0
-        _CloudDarkness ("Cloud Darkness (Shadow Intensity)", Range(0, 1)) = 0.5
-        _CloudColor ("Cloud Color Tint", Color) = (1, 1, 1, 1)
-        _CloudShadowColor ("Cloud Shadow Color", Color) = (0.35, 0.35, 0.40, 1)
-        _CloudHorizonCoverage ("Cloud Horizon Coverage", Range(0, 1)) = 0.8
-        _CloudEdgeSoftness ("Cloud Edge Softness", Range(0.0, 0.5)) = 0.35
-        _CloudVariation ("Cloud Variation/Turbulence", Range(0, 1)) = 0.5
-
         [Header(Procedural Stars)]
         _EnableStars ("Enable Procedural Stars", Float) = 1
         _StarDensity ("Star Density", Range(0, 500)) = 200
@@ -125,34 +104,6 @@ Shader "Custom/DayNightSkybox"
         _HorizonHazeStrength ("Horizon Haze Strength", Range(0, 1)) = 0.3
         _HorizonHazeHeight ("Horizon Haze Height", Range(0.01, 1.0)) = 0.15
         _HorizonHazeFalloff ("Horizon Haze Falloff", Range(0.5, 8.0)) = 3.0
-
-        [Header(Cloud Layer 2)]
-        _CloudLayer2Coverage ("Cloud Layer 2 Coverage", Range(0, 1)) = 0.0
-        _CloudLayer2Scale ("Cloud Layer 2 Scale", Range(1, 20)) = 8.0
-        _CloudLayer2Speed ("Cloud Layer 2 Speed", Range(0, 2)) = 0.5
-        _CloudLayer2Opacity ("Cloud Layer 2 Opacity", Range(0, 1)) = 0.3
-        _CloudLayer2Height ("Cloud Layer 2 Height Bias", Range(-0.5, 0.8)) = 0.1
-
-        [Header(Cloud Layer 2 Weather Driven)]
-        _Cloud2Coverage ("Cloud2 Coverage", Range(0, 1)) = 0.0
-        _Cloud2Scale ("Cloud2 Scale", Range(1, 20)) = 8.0
-        _Cloud2Speed ("Cloud2 Speed", Range(0, 2)) = 0.15
-        _Cloud2Density ("Cloud2 Density", Range(0, 2)) = 0.8
-        _Cloud2Sharpness ("Cloud2 Sharpness", Range(0.1, 5.0)) = 2.0
-        _Cloud2Brightness ("Cloud2 Brightness", Range(0, 2)) = 1.0
-        _Cloud2Darkness ("Cloud2 Darkness", Range(0, 1)) = 0.3
-        _Cloud2Color ("Cloud2 Color Tint", Color) = (0.96, 0.96, 0.98, 1)
-        _Cloud2ShadowColor ("Cloud2 Shadow Color", Color) = (0.50, 0.52, 0.58, 1)
-        _Cloud2Opacity ("Cloud2 Opacity", Range(0, 1)) = 0.3
-
-        [Header(Storm Transition)]
-        _CloudDissolveOffset ("Cloud Dissolve Offset", Vector) = (0, 0, 0, 0)
-
-        [Header(Cloud Shell Altitude)]
-        _CloudShellRadius ("Cloud Shell Radius", Range(1000, 1000000)) = 25000.0
-        _Cloud2ShellRadius ("Cloud2 Shell Radius", Range(1000, 1000000)) = 35000.0
-        _CloudShellFlattening ("Cloud Shell Flattening", Range(0, 10)) = 0.0
-        _CloudZenithBlend ("Cloud Zenith Blend", Range(0, 1)) = 0.4
     }
 
     SubShader
@@ -201,26 +152,6 @@ Shader "Custom/DayNightSkybox"
             float _MoonSize;
             float _MoonGlowSize;
             float _MoonGlowStrength;
-
-            float _EnableClouds;
-            float _CloudScale;
-            float _CloudSpeed;
-            float4 _CloudDirection;
-            float _CloudDensity;
-            float _CloudSharpness;
-            float _CloudHeight;
-            float4 _CloudDayColor;
-            float4 _CloudNightColor;
-            float4 _CloudSunsetColor;
-            float _CloudAlpha;
-            float _CloudCoverage;
-            float _CloudBrightness;
-            float _CloudDarkness;
-            float4 _CloudColor;
-            float4 _CloudShadowColor;
-            float _CloudHorizonCoverage;
-            float _CloudEdgeSoftness;
-            float _CloudVariation;
 
             float _EnableStars;
             float _StarDensity;
@@ -276,30 +207,6 @@ Shader "Custom/DayNightSkybox"
             float _HorizonHazeStrength;
             float _HorizonHazeHeight;
             float _HorizonHazeFalloff;
-
-            float _CloudLayer2Coverage;
-            float _CloudLayer2Scale;
-            float _CloudLayer2Speed;
-            float _CloudLayer2Opacity;
-            float _CloudLayer2Height;
-
-            float _Cloud2Coverage;
-            float _Cloud2Scale;
-            float _Cloud2Speed;
-            float _Cloud2Density;
-            float _Cloud2Sharpness;
-            float _Cloud2Brightness;
-            float _Cloud2Darkness;
-            float4 _Cloud2Color;
-            float4 _Cloud2ShadowColor;
-            float _Cloud2Opacity;
-
-            float4 _CloudDissolveOffset;
-
-            float _CloudShellRadius;
-            float _Cloud2ShellRadius;
-            float _CloudShellFlattening;
-            float _CloudZenithBlend;
 
             // ─── STRUCTS ─────────────────────────────────────────────
 
@@ -382,167 +289,6 @@ Shader "Custom/DayNightSkybox"
                 f += 0.03125 * Noise3D(p); p *= 2.73;
                 f += 0.01563 * Noise3D(p);
                 return f;
-            }
-
-            // ─── 2D VALUE NOISE (used for cloud color variation) ─────────
-
-            // Hash for 2D value noise
-            float Hash2D(float2 p)
-            {
-                float3 p3 = frac(float3(p.xyx) * float3(443.897, 441.423, 437.195));
-                p3 += dot(p3, p3.yzx + 19.19);
-                return frac((p3.x + p3.y) * p3.z);
-            }
-
-            // Smooth value noise with quintic interpolation — Ken Perlin's smootherstep
-            // polynomial (6t⁵ - 15t⁴ + 10t³) eliminates the grid artifacts that cubic
-            // smoothstep (3t² - 2t³) produces at cell boundaries.
-            float ValueNoise(float2 p)
-            {
-                float2 i = floor(p);
-                float2 f = frac(p);
-                // Quintic: f³(f(6f - 15) + 10)
-                float2 u = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
-                float a = Hash2D(i);
-                float b = Hash2D(i + float2(1, 0));
-                float c = Hash2D(i + float2(0, 1));
-                float d = Hash2D(i + float2(1, 1));
-                return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
-            }
-
-            // ─── 3D FBM CLOUD LAYER ──────────────────────────────────────
-            //
-            // Samples 3D noise on a sphere-shell blended with a flat-plane
-            // projection.  The sphere-shell gives genuine 3D parallax and depth;
-            // the flat-plane removes the concentric ring artifacts that appear near
-            // the zenith.  _CloudZenithBlend controls how far up the sky the blend
-            // kicks in (0 = pure sphere-shell everywhere, 1 = flat-plane bias).
-            //
-            // Directional coverage gradient: clouds grow in from the wind direction
-            // rather than fizzling in as random pixels everywhere at once.
-            float CalculateCloudLayer(float3 worldDir, float shellRadius, float cloudScale,
-                                      float cloudSpeed, float4 cloudDir, float coverage,
-                                      float density, float sharpness, float time,
-                                      float3 dissolveOff, float edgeSoftness,
-                                      float variation, float layerSeed, float zenithBlend)
-            {
-                float3 ndir = normalize(worldDir);
-
-                // Below-horizon rays get no clouds
-                if (ndir.y < 0.005) return 0.0;
-
-                // Physics-based horizon scale — reference radius 25000 so that
-                // cloud scale feels consistent across different shell radii.
-                float horizonScale = shellRadius / 25000.0;
-
-                // ── WIND OFFSET (3D) ────────────────────────────────────────
-                float3 windOffset = float3(cloudDir.x, 0.0, cloudDir.z) * cloudSpeed * time;
-
-                // ── SPHERE-SHELL POSITION ───────────────────────────────────
-                float flattenFactor = 1.0 - _CloudShellFlattening * 0.8; // 0.8 max squash to avoid degeneracy
-                float3 spherePos = ndir * shellRadius;
-                spherePos.y *= flattenFactor;
-
-                // ── FLAT-PLANE PROJECTION ───────────────────────────────────
-                // Project view ray onto horizontal plane at height shellRadius.
-                // This distributes noise evenly and eliminates zenith ring artifacts.
-                float t = (shellRadius * flattenFactor) / max(ndir.y, 0.3);
-                t = min(t, shellRadius * 3.0);  // never stretch beyond 3x shell radius
-                float3 flatPos = float3(ndir.x * t, 0.0, ndir.z * t);
-
-                // ── BLEND SPHERE AND FLAT-PLANE ─────────────────────────────
-                // At low elevations (horizon) use mostly sphere-shell for depth.
-                // At high elevations (near zenith) blend toward flat-plane to
-                // eliminate ring artifacts that appear directly overhead.
-                float zenithGate = smoothstep(0.7, 0.95, ndir.y);  // only blend near the pole
-                float rawBlend = saturate(ndir.y * zenithBlend * 2.0);
-                // Perlin smootherstep for tighter transition
-                float blendFactor = rawBlend * rawBlend * rawBlend * (rawBlend * (rawBlend * 6.0 - 15.0) + 10.0);
-                blendFactor *= zenithGate;  // restrict to near-pole region
-                float3 basePos = lerp(spherePos, flatPos, blendFactor);
-
-                // Normalize noise coordinates so cloud visual size stays constant
-                // regardless of shell radius. Only the dome geometry changes, not the
-                // apparent cloud scale.
-                float radiusNorm = 25000.0 / max(shellRadius, 1.0);
-
-                // Scale into noise-frequency space
-                float3 samplePos = basePos * radiusNorm * cloudScale * 0.0003;
-
-                // Apply wind and dissolve offsets.
-                samplePos += windOffset * cloudScale * 0.0003;
-                samplePos += dissolveOff;
-
-                // Layer seed separation — ensures layer 2 samples a different region
-                samplePos += float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
-
-                // ── INNER SHELL PARALLAX (97% radius) ──────────────────────
-                float3 innerSpherePos = ndir * (shellRadius * 0.97);
-                innerSpherePos.y *= flattenFactor;
-                float3 innerFlatPos = float3(ndir.x * (t * 0.97), 0.0, ndir.z * (t * 0.97));
-                float3 innerBasePos = lerp(innerSpherePos, innerFlatPos, blendFactor);
-                float3 sampleInner = innerBasePos * radiusNorm * cloudScale * 0.0003
-                                   + windOffset * cloudScale * 0.0003
-                                   + dissolveOff
-                                   + float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
-
-                // ── DEEP SHELL PARALLAX (94% radius) — third sample for more volumetric depth
-                float3 deepSpherePos = ndir * (shellRadius * 0.94);
-                deepSpherePos.y *= flattenFactor;
-                float3 deepFlatPos = float3(ndir.x * (t * 0.94), 0.0, ndir.z * (t * 0.94));
-                float3 deepBasePos = lerp(deepSpherePos, deepFlatPos, blendFactor);
-                float3 sampleDeep = deepBasePos * radiusNorm * cloudScale * 0.0003
-                                  + windOffset * cloudScale * 0.0003
-                                  + dissolveOff
-                                  + float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
-
-                // ── BASE SHAPE — blend outer, middle, and deep shell for volumetric depth
-                float baseShape = FBM(samplePos) * 0.35 + FBM(sampleInner) * 0.35 + FBM(sampleDeep) * 0.30;
-
-                // ── MID-FREQUENCY DETAIL ────────────────────────────────────
-                float3 detailPos = samplePos * 2.5 + float3(5.3, 1.7, 3.1);
-                float detail = FBMFine(detailPos);
-
-                // ── HIGH-FREQUENCY WISPS ────────────────────────────────────
-                float wispW = lerp(0.05, 0.15, saturate(variation));
-                float3 wispPos = samplePos * 5.0 + float3(17.5, 3.2, 11.1);
-                float wisps = FBM(wispPos);
-
-                // Combine octaves
-                float noiseVal = baseShape * (0.7 - wispW) + detail * 0.3 + wisps * wispW;
-
-                // ── DIRECTIONAL COVERAGE GRADIENT ──────────────────────────
-                // Symmetric directional bias: both windward and leeward sides receive
-                // equal influence so the warp is visible across the whole sky.
-                float2 windDir2D = normalize(cloudDir.xz + float2(0.0001, 0.0001));
-                float arrivalFactor = dot(ndir.xz, windDir2D); // -1 (leeward) to +1 (windward)
-                // Scale down the directional bias so it's a gentle effect, not a hard gate
-                float directionalBias = abs(arrivalFactor) * 0.08; // symmetric, reduced strength
-                float effectiveCoverage = saturate(coverage * (1.0 + directionalBias));
-
-                // ── PRELIMINARY CLOUD MASK for core detail weighting ────────
-                float prelimMask = saturate((noiseVal - (1.0 - effectiveCoverage)) * sharpness * density);
-
-                // ── CORE DETAIL (fine noise weighted by preliminary mask) ───
-                float3 corePos = samplePos * 2.5 + float3(2.1, 8.4, 4.7);
-                float coreDetail = FBMFine(corePos) * 0.2;
-                noiseVal += coreDetail * prelimMask;
-
-                // ── FINAL COVERAGE THRESHOLD ────────────────────────────────
-                float cloudMask = saturate((noiseVal - (1.0 - effectiveCoverage)) * sharpness * density);
-
-                // Edge softness
-                float edgeWidth = max(edgeSoftness * 2.0, 0.15);
-                cloudMask = smoothstep(0.0, edgeWidth, cloudMask);
-
-                // Physics-based horizon fade — clouds thin out close to the horizon.
-                // Clamp both values so the range stays valid regardless of shell radius.
-                float fadeStart = min(0.005 * horizonScale, 0.12);
-                float fadeEnd   = min(0.15  * horizonScale, 0.20);
-                float horizonFade = smoothstep(fadeStart, fadeEnd, ndir.y);
-                cloudMask *= horizonFade;
-
-                return cloudMask;
             }
 
             // ─── ROTATION ────────────────────────────────────────────
@@ -733,135 +479,6 @@ Shader "Custom/DayNightSkybox"
                 return skyColor * _DayAtmosphereStrength;
             }
 
-            // ─── PROCEDURAL CLOUDS ───────────────────────────────────
-
-            float3 CalculateClouds(float3 dir, float sunsetFactor, float dayFactor, out float cloudAlpha)
-            {
-                cloudAlpha = 0.0;
-
-                // Height mask — controls which sky directions show clouds.
-                // A minimum floor of 0.15 on the coverage factor ensures that even at
-                // low coverage values, horizonPush is large enough for clouds to render
-                // without being altitude-restricted to invisibility.
-                float horizonPush = _CloudHorizonCoverage * max(saturate(_CloudCoverage * 2.0), 0.15);
-                float heightMask = smoothstep(-horizonPush, _CloudHeight + 0.3, dir.y);
-                if (heightMask < 0.001) return float3(0, 0, 0);
-
-                // ── Layer 1 — sphere-shell 3D FBM (primary cloud layer)
-                // _CloudDissolveOffset.xyz is a 3D directional bias: when a storm clears,
-                // clouds roll toward the horizon in that direction rather than fading in place.
-                float3 dissolveOff1 = _CloudDissolveOffset.xyz;
-                float density = CalculateCloudLayer(
-                    dir, _CloudShellRadius, _CloudScale, _CloudSpeed,
-                    _CloudDirection, _CloudCoverage, _CloudDensity,
-                    _CloudSharpness, _Time.y, dissolveOff1,
-                    _CloudEdgeSoftness, _CloudVariation, 0.0, _CloudZenithBlend);
-                density *= heightMask;
-
-                // ── Cloud Layer 2 — high-altitude weather-driven clouds (_Cloud2* properties)
-                float density2 = 0.0;
-                float3 cloudColor2 = float3(0, 0, 0);
-                float alpha2 = 0.0;
-
-                if (_Cloud2Coverage > 0.001)
-                {
-                    float heightMask2 = smoothstep(-horizonPush * 0.5, _CloudLayer2Height + 0.3, dir.y);
-                    if (heightMask2 > 0.001)
-                    {
-                        // Higher shell radius = more distant appearance; dissolve bias halved
-                        // so upper layer transitions more slowly than lower layer
-                        float3 dissolveOff2 = _CloudDissolveOffset.xyz * 0.5;
-                        density2 = CalculateCloudLayer(
-                            dir, _Cloud2ShellRadius, _Cloud2Scale, _Cloud2Speed,
-                            _CloudDirection, _Cloud2Coverage, _Cloud2Density,
-                            _Cloud2Sharpness, _Time.y, dissolveOff2,
-                            _CloudEdgeSoftness * 1.5, 0.5, 1.0, _CloudZenithBlend);
-                        density2 *= heightMask2;
-
-                        // Layer 2 color — distinct brightness/darkness conveys altitude and mass
-                        float3 timeColor2 = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
-                        timeColor2 = lerp(timeColor2, _CloudSunsetColor.rgb, sunsetFactor * 0.8);
-                        float3 tintedColor2 = timeColor2 * _Cloud2Color.rgb;
-                        // Thickness: 1.3 scales density into a wider range, 1.6 exponent creates realistic depth falloff
-                        float thickness2 = pow(saturate(density2 * 1.3), 1.6);
-                        // Rim light slightly softer for high-altitude Layer 2 (0.25 vs 0.3 for Layer 1)
-                        float rimLight2 = 1.0 + 0.25 * pow(saturate(1.0 - density2), 2.0);
-                        float3 litColor2 = tintedColor2 * _Cloud2Brightness * rimLight2;
-                        float selfShadow2 = 1.0 - _Cloud2Darkness * thickness2;
-                        float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, litColor2, saturate(density2 * 1.2));
-                        cloudColor2 = shadowBlend2 * selfShadow2;
-                        // Subtle low-frequency color variation using flat-plane projection
-                        float t_color2 = _Cloud2ShellRadius / max(abs(normalize(dir).y), 0.02);
-                        float3 colorPos2 = float3(normalize(dir).x * t_color2, 0.0, normalize(dir).z * t_color2)
-                                         * _Cloud2Scale * 0.00005
-                                         + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _Cloud2Speed * _Time.y;
-                        float colorVar2 = Noise3D(colorPos2 * 0.4);
-                        float colorVarWeight2 = lerp(0.03, 0.01, saturate(density2 - 0.5));
-                        cloudColor2 *= lerp(1.0 - colorVarWeight2, 1.0 + colorVarWeight2, colorVar2);
-                        // Power curve: edges wispy, cores opaque
-                        alpha2 = pow(density2 * _Cloud2Opacity, 0.7);
-                    }
-                }
-
-                // Early exit if neither layer is visible
-                if (density < 0.001 && alpha2 < 0.001)
-                    return float3(0, 0, 0);
-
-                // ── Layer 1 color with volumetric self-shadowing
-                float3 timeColor = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
-                timeColor = lerp(timeColor, _CloudSunsetColor.rgb, sunsetFactor * 0.8);
-                float3 tintedColor = timeColor * _CloudColor.rgb;
-
-                // Volumetric look: bright tops, dark bases
-                // density close to 1 = deep inside cloud = darker (shadow)
-                // density close to 0 = thin edge = brighter (silver lining)
-                float3 litColor = tintedColor * _CloudBrightness;
-
-                // Silver-lining rim light on thin edges (gentler than before; 0.3 for Layer 1 vs 0.25 for Layer 2 — slightly stronger at lower altitude)
-                float rimLight = 1.0 + 0.3 * pow(saturate(1.0 - density), 2.0);
-                litColor *= rimLight;
-
-                // Thickness simulation using power curve — 1.3 scales density range, 1.6 exponent creates realistic depth falloff
-                float thickness = pow(saturate(density * 1.3), 1.6);
-
-                // Stronger self-shadow so dense cloud cores are visibly darker
-                float selfShadow = 1.0 - _CloudDarkness * thickness;
-
-                // No brightness floor on thin wisps — proper shadow-to-light gradient
-                float3 shadowBlend = lerp(_CloudShadowColor.rgb, litColor, saturate(density * 1.2));
-                float3 cloudColorResult = shadowBlend * selfShadow;
-                // Subtle low-frequency color variation — breaks uniform tint across large cloud formations
-                float t_color1 = _CloudShellRadius / max(abs(normalize(dir).y), 0.02);
-                float3 colorPos1 = float3(normalize(dir).x * t_color1, 0.0, normalize(dir).z * t_color1)
-                                 * _CloudScale * 0.00005
-                                 + float3(_CloudDirection.x, 0.0, _CloudDirection.z) * _CloudSpeed * _Time.y;
-                float colorVar1 = Noise3D(colorPos1 * 0.4);
-                float colorVarWeight1 = lerp(0.03, 0.01, saturate(density - 0.5));
-                cloudColorResult *= lerp(1.0 - colorVarWeight1, 1.0 + colorVarWeight1, colorVar1);
-                // Power curve: edges wispy, cores opaque
-                float alpha1 = pow(density * heightMask * _CloudAlpha, 0.7);
-
-                // ── Composite Layer 2 over Layer 1 using the standard "over" operator
-                if (alpha1 > 0.001 && alpha2 > 0.001)
-                {
-                    float combinedAlpha = alpha1 + alpha2 * (1.0 - alpha1);
-                    float3 combinedColor = (cloudColorResult * alpha1 * (1.0 - alpha2) + cloudColor2 * alpha2)
-                                          / combinedAlpha;
-                    cloudAlpha = combinedAlpha;
-                    return combinedColor;
-                }
-                else if (alpha2 > 0.001)
-                {
-                    cloudAlpha = alpha2;
-                    return cloudColor2;
-                }
-                else
-                {
-                    cloudAlpha = alpha1;
-                    return cloudColorResult;
-                }
-            }
-
             // ─── SUN DISC ────────────────────────────────────────────
 
             float3 CalculateSunDisc(float3 dir)
@@ -975,49 +592,23 @@ Shader "Custom/DayNightSkybox"
                     col += CalculateDust(dir) * nightFactor;
                 }
 
-                // ─── PROCEDURAL CLOUDS — compute early to get cloudAlpha for occlusion ──
-                float cloudAlpha = 0.0;
-                float3 cloudColor = float3(0, 0, 0);
-                if (_EnableClouds > 0.5)
-                    cloudColor = CalculateClouds(dir, transitionFactor, dayFactor, cloudAlpha);
-                float cloudOcclusion = 1.0 - cloudAlpha;
-                if (_EnableClouds > 0.5)
-                {
-                    // Density-aware sun/moon occlusion:
-                    // _CloudDensity and _CloudDarkness together define cloud optical thickness.
-                    // Dense dark storm clouds block almost all light; thin fair-weather clouds
-                    // let most light through the disc.
-                    float opticalThickness = _CloudDensity * (0.3 + _CloudDarkness * 0.7);
-                    float discOcclusion = saturate(cloudAlpha * opticalThickness);
-                    cloudOcclusion = 1.0 - discOcclusion;
-
-                    // Dim background sky (stars, nebula, aurora, dust) behind dense clouds
-                    // so they don't bleed through at high cloud coverage.
-                    // Applied here, BEFORE sun/moon discs are added, so their dedicated
-                    // cloudOcclusion path is unaffected and they are not double-attenuated.
-                    col *= lerp(1.0, 0.05, saturate(cloudAlpha * 1.5));
-                }
-
                 // ─── SUN DISC ─────────────────────────────────────
                 if (_EnableSun > 0.5)
                 {
                     // Sun visible during day and at sunrise/sunset transitions
                     float sunVisibility = saturate(dayFactor + transitionFactor * 1.5);
-                    col += CalculateSunDisc(dir) * sunVisibility * cloudOcclusion;
+                    col += CalculateSunDisc(dir) * sunVisibility;
                 }
 
                 // ─── MOON DISC (night only) ───────────────────────
                 if (_EnableMoon > 0.5 && nightFactor > 0.001)
                 {
-                    col += CalculateMoonDisc(dir) * nightFactor * cloudOcclusion;
+                    col += CalculateMoonDisc(dir) * nightFactor;
                 }
 
-                // ─── PROCEDURAL CLOUDS — composite ────────────────
-                if (_EnableClouds > 0.5)
-                    col = lerp(col, cloudColor, cloudAlpha);
                 // ─── HORIZON HAZE ─────────────────────────────────────────
-                // Haze color is derived automatically from sky + cloud colors, adapting
-                // to both time of day and active weather — no separate color property needed.
+                // Haze color is derived from sky colors only (clouds are now rendered
+                // by the separate VolumetricClouds pass).
                 if (_HorizonHazeStrength > 0.001)
                 {
                     // Sky horizon reference: blend between night panorama and day horizon
@@ -1027,16 +618,7 @@ Shader "Custom/DayNightSkybox"
                     // Add sunrise/sunset warmth at the horizon line
                     float3 transitionTint = lerp(_SunriseColor.rgb, _SunsetColor.rgb,
                                                  smoothstep(0.3, 0.7, _TimeOfDay));
-                    skyHorizonColor = lerp(skyHorizonColor, transitionTint, transitionFactor * 0.5);
-
-                    // Cloud color reference: time-of-day base tinted by the weather cloud color
-                    float3 cloudLitColor = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
-                    cloudLitColor = lerp(cloudLitColor, _CloudSunsetColor.rgb, transitionFactor * 0.8);
-                    cloudLitColor *= _CloudColor.rgb;
-
-                    // 60% cloud tint, 40% sky — clouds dominate so horizon and distant
-                    // clouds match when looking into the distance.
-                    float3 hazeColor = lerp(skyHorizonColor, cloudLitColor, 0.6);
+                    float3 hazeColor = lerp(skyHorizonColor, transitionTint, transitionFactor * 0.5);
 
                     float hazeFactor = _HorizonHazeStrength
                         * pow(saturate(1.0 - abs(dir.y) / max(_HorizonHazeHeight, 0.01)),

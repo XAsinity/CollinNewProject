@@ -210,3 +210,56 @@ void Update()
 | Heavy Storm | 0.90 | 0.98 | 2.5× | 0.15 | Rain 100% |
 | Fog | 0.30 | 0.50 | 4.0× | 0.50 | None |
 | Snow | 0.60 | 0.80 | 1.5× | 0.50 | Snow 70% |
+
+---
+
+## Step 7 — Volumetric Cloud System Setup
+
+The cloud rendering has been extracted from the skybox shader into a dedicated **fullscreen volumetric render pass**. This produces more realistic, three-dimensional clouds with proper depth, self-shadowing, and Henyey-Greenstein light scattering.
+
+### New files
+
+| File | Purpose |
+|------|---------|
+| `Assets/Shaders/VolumetricClouds.shader` | Fullscreen URP shader that raymarches 32 shell layers per cloud layer |
+| `Assets/Scripts/Rendering/VolumetricCloudRenderPass.cs` | `ScriptableRendererFeature` that injects the cloud pass after the skybox |
+
+The `DayNightSkybox.shader` no longer contains any cloud code — it handles sky gradient, sun/moon discs, stars, nebula, aurora, dust, horizon haze, and vignette only.
+
+### 7a. Create the cloud material
+
+1. In the **Project** panel, navigate to `Assets/Materials/Sky/`
+2. Right-click → **Create → Material** → name it `VolumetricClouds`
+3. In the Inspector, set the **Shader** to `Custom/VolumetricClouds`
+4. Tweak the cloud properties to taste (all the same controls as before — coverage, density, scale, etc.)
+
+### 7b. Add the renderer feature
+
+1. Open your **URP Renderer asset** (usually `Assets/Settings/<something>Renderer.asset`)
+2. Click **Add Renderer Feature** → select **Volumetric Cloud Render Feature**
+3. Assign the `VolumetricClouds` material to the **Cloud Material** slot on the feature
+
+### 7c. Assign the material to WeatherManager
+
+1. Select the **WeatherManager** GameObject in the Hierarchy
+2. In the Inspector, find the **Cloud Material** field (just below **References**)
+3. Drag the `VolumetricClouds` material into that slot
+
+### 7d. Assign the material to DayNightCycle
+
+1. Select the **DayNightController** (or whichever GameObject holds `DayNightCycle`)
+2. In the Inspector, find the **Cloud Material** field (just below **Skybox Material**)
+3. Drag the `VolumetricClouds` material into that slot
+
+> **Why both?**  
+> `DayNightCycle` pushes `_TimeOfDay`, `_SunDirection`, and `_MoonDirection` every frame so the cloud shader gets correct time-of-day coloring and Henyey-Greenstein light scattering direction.  
+> `WeatherManager` pushes all the coverage/density/color/speed properties during weather transitions.
+
+### 7e. Notes
+
+- All **WeatherProfile** fields work exactly as before — they are now routed to the cloud material instead of the skybox material.
+- The skybox material should **not** receive cloud properties — WeatherManager no longer sets any `_Cloud*` values on it.
+- The cloud pass renders **after the skybox** (`RenderPassEvent.AfterRenderingSkybox`) and **before opaque geometry**, so clouds appear above the sky background and can be occluded by game objects.
+- **Shell radius, shell flattening, and zenith blend** are geometry properties — set them on the cloud material directly. WeatherManager intentionally never overrides them during transitions.
+- If you do not assign `cloudMaterial` to WeatherManager, a warning is logged and cloud properties are silently skipped — the game will not crash.
+
