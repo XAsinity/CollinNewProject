@@ -6,6 +6,8 @@ using UnityEngine.Rendering.Universal;
 /// Singleton MonoBehaviour that drives the weather system.
 /// Assign weather profiles in the Inspector, then call SetWeather() or enable autoWeather.
 /// The manager lerps all shader, fog, ambient, light, and URP Volume properties between profiles.
+/// Optionally assign a <see cref="Weather.WeatherPresetBundle"/> to use rule-based weather
+/// sequences instead of pure random selection.
 /// </summary>
 public class WeatherManager : MonoBehaviour
 {
@@ -24,25 +26,28 @@ public class WeatherManager : MonoBehaviour
     [Tooltip("The currently active weather profile (applied on Start if assigned)")]
     public Weather.WeatherProfile currentWeather;
 
+    [Header("Preset Bundle")]
+    [Tooltip("Assign a WeatherPresetBundle to use rule-based weather transitions. " +
+             "When assigned, this overrides the random auto-weather system with " +
+             "realistic sequenced transitions. Leave empty to auto-generate a " +
+             "default bundle at runtime.")]
+    public Weather.WeatherPresetBundle presetBundle;
+
     [Header("Transition")]
-    [Tooltip("Duration in seconds to smoothly blend between weather states")]
-    public float transitionDuration = 45f;
+    [Tooltip("Duration in seconds to smoothly blend between weather states (used when no bundle rule overrides it)")]
+    public float transitionDuration = 90f;
 
     [Header("Auto Weather")]
     [Tooltip("Automatically cycle through random weather conditions over time")]
     public bool autoWeather = false;
 
-    [Tooltip("Minimum real-time seconds before auto-weather picks a new condition")]
+    [Tooltip("Minimum real-time seconds before auto-weather picks a new condition " +
+             "(used when no bundle is assigned; bundle entries supply their own hold times)")]
     public float minTimeBetweenChanges = 180f;
 
-    [Tooltip("Maximum real-time seconds before auto-weather picks a new condition")]
+    [Tooltip("Maximum real-time seconds before auto-weather picks a new condition " +
+             "(used when no bundle is assigned; bundle entries supply their own hold times)")]
     public float maxTimeBetweenChanges = 600f;
-
-    [Tooltip("When the active weather profile's max cloud coverage exceeds this value, " +
-             "auto-weather will only pick profiles with similarly high coverage so stormy " +
-             "conditions are not abruptly replaced by clear skies. Set to 1 to disable biasing.")]
-    [Range(0f, 1f)]
-    public float autoWeatherCloudBiasThreshold = 0.6f;
 
     [Header("Debug")]
     [Tooltip("Press in Play mode to manually trigger a random weather change")]
@@ -112,12 +117,15 @@ public class WeatherManager : MonoBehaviour
     private float _currentCloud2Speed;
     private float _cloud2SpeedVelocity;
 
-    // ─── AUTO-WEATHER BIAS COUNTER ───────────────────────────────────
-    // Tracks how many consecutive weather picks were made under the cloudy bias.
-    // After MaxConsecutiveBiasedPicks, the next pick ignores the bias to prevent
-    // locking into heavy weather forever.
-    private int _consecutiveBiasedPicks = 0;
-    private const int MaxConsecutiveBiasedPicks = 2;
+    // ─── ACTIVE TRANSITION DURATION ──────────────────────────────────
+    // Stores the duration in use for the current transition. Bundle rules can override
+    // this per-transition without touching the Inspector-serialised transitionDuration field.
+    private float _activeTransitionDuration;
+
+    // ─── AUTO-WEATHER BIAS COUNTER (REMOVED) ────────────────────────
+    // The old cloud-bias system has been replaced by the WeatherPresetBundle.
+    // When a bundle is assigned, PickBundleWeather() handles realistic sequencing.
+    // When no bundle is assigned, PickRandomWeather() simply picks any different profile.
 
     // Current lerped volume influence (controls _weatherVolume.weight)
     private float _currentVolumeInfluence = 0f;
@@ -176,6 +184,9 @@ public class WeatherManager : MonoBehaviour
         }
 
         SetupVolume();
+
+        // Initialise the active transition duration to the Inspector default
+        _activeTransitionDuration = transitionDuration;
 
         // Bug 2 fix: Always force a full clear-sky baseline on play start so the first
         // frame never inherits stale storm/fog shader values from a previous run.
@@ -274,6 +285,20 @@ public class WeatherManager : MonoBehaviour
 
         _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
         _lastKnownWeather = currentWeather;
+
+        // Validate timing — warn if transitions would overlap
+        if (minTimeBetweenChanges < transitionDuration * 1.5f)
+        {
+            float safe = transitionDuration * 1.5f;
+            Debug.LogWarning($"[WeatherManager] minTimeBetweenChanges ({minTimeBetweenChanges}s) is less than " +
+                             $"transitionDuration * 1.5 ({safe}s). Transitions may overlap. " +
+                             $"Clamping minTimeBetweenChanges to {safe}s.");
+            minTimeBetweenChanges = safe;
+        }
+
+        // If no bundle is assigned, auto-generate the default one at runtime
+        if (presetBundle == null && autoWeather)
+            presetBundle = GetOrCreateDefaultBundle();
     }
 
 #if UNITY_EDITOR
@@ -334,7 +359,7 @@ public class WeatherManager : MonoBehaviour
                 }
             }
 
-            _transitionProgress += Time.deltaTime / Mathf.Max(0.01f, transitionDuration);
+            _transitionProgress += Time.deltaTime / Mathf.Max(0.01f, _activeTransitionDuration);
             _transitionProgress = Mathf.Clamp01(_transitionProgress);
             ApplyWeatherLerp(_sourceWeather, _targetWeather, _transitionProgress);
         }
@@ -363,15 +388,21 @@ public class WeatherManager : MonoBehaviour
         if (_weatherVolume != null)
             _weatherVolume.weight = _currentVolumeInfluence;
 
-        // Bug 3 fix: auto-weather cycling is skipped when weather is locked by an external
+        // Auto-weather cycling is skipped when weather is locked by an external
         // SetWeather() call, so manually chosen conditions are never overridden automatically.
         if (autoWeather && !_weatherLocked && weatherProfiles != null && weatherProfiles.Length > 1)
         {
             _autoWeatherTimer -= Time.deltaTime;
             if (_autoWeatherTimer <= 0f)
             {
-                PickRandomWeather();
-                _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
+                if (presetBundle != null)
+                    PickBundleWeather();
+                else
+                    PickRandomWeather();
+                // Timer is reset inside the pick methods when using a bundle (uses entry hold times),
+                // but we reset it here as a fallback for the no-bundle path.
+                if (presetBundle == null)
+                    _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
             }
         }
 
@@ -379,7 +410,10 @@ public class WeatherManager : MonoBehaviour
         if (_debugForceRandomWeather)
         {
             _debugForceRandomWeather = false;
-            PickRandomWeather();
+            if (presetBundle != null)
+                PickBundleWeather();
+            else
+                PickRandomWeather();
         }
     }
 
@@ -412,7 +446,8 @@ public class WeatherManager : MonoBehaviour
 
     // Internal transition that does NOT set the weather lock — used by auto-cycling
     // and the startup coroutine so those paths don't permanently block auto-weather.
-    private void SetWeatherInternal(Weather.WeatherProfile profile)
+    // An optional durationOverride lets bundle rules supply per-transition durations.
+    private void SetWeatherInternal(Weather.WeatherProfile profile, float durationOverride = -1f)
     {
         if (profile == null) return;
 
@@ -425,10 +460,22 @@ public class WeatherManager : MonoBehaviour
             ? _skyboxMaterial.GetFloat("_Cloud2Coverage")
             : (_sourceWeather != null ? _fromCoverage2 : 0f);
 
+        // If a transition is already in progress, reset SmoothDamp velocities so there is
+        // no accumulated momentum from the interrupted transition causing cloud speed spikes.
+        if (_transitionProgress < 1f)
+        {
+            _cloudSpeedVelocity  = 0f;
+            _cloud2SpeedVelocity = 0f;
+        }
+
         _sourceWeather = currentWeather ?? profile;
         _targetWeather = profile;
         currentWeather = profile;
         _lastKnownWeather = profile;
+
+        // Apply per-transition duration override if provided, otherwise use the global default.
+        // We store it in _activeTransitionDuration rather than overwriting the Inspector field.
+        _activeTransitionDuration = durationOverride >= 0f ? durationOverride : transitionDuration;
 
         // Pick a random target coverage within the new profile's diversity range
         _toCoverage = Random.Range(profile.cloudCoverageMin, profile.cloudCoverageMax);
@@ -485,39 +532,102 @@ public class WeatherManager : MonoBehaviour
     {
         if (weatherProfiles == null || weatherProfiles.Length == 0) return;
 
-        // Coverage bias: only enforce a cloudy->cloudy restriction when the current
-        // weather is truly storm-like (heavy precipitation). Raise the threshold to
-        // 0.4 so light snow/drizzle does not trigger the bias. Also, after
-        // MaxConsecutiveBiasedPicks consecutive biased picks, skip the bias once to
-        // break the HeavyStorm feedback loop.
-        float currentMaxCoverage = currentWeather != null ? currentWeather.cloudCoverageMax : 0f;
-        bool biasEligible = currentWeather != null &&
-                            currentWeather.precipitationIntensity > 0.4f &&
-                            currentWeather.precipitationType != Weather.PrecipitationType.None &&
-                            currentMaxCoverage > autoWeatherCloudBiasThreshold;
-
-        // Force an unbiased pick after too many consecutive biased picks
-        bool requireCloudy = biasEligible && _consecutiveBiasedPicks < MaxConsecutiveBiasedPicks;
-
+        // Simple unbiased pick: just choose any profile that is different from the current one.
+        // The old cloud-coverage bias has been removed — it caused a HeavyStorm feedback loop.
         Weather.WeatherProfile next = weatherProfiles[Random.Range(0, weatherProfiles.Length)];
         int attempts = 0;
-        while (attempts < 20)
+        while (next == currentWeather && weatherProfiles.Length > 1 && attempts < 20)
         {
-            bool differentFromCurrent = next != currentWeather || weatherProfiles.Length == 1;
-            bool coverageOk = !requireCloudy || next.cloudCoverageMax > autoWeatherCloudBiasThreshold;
-            if (differentFromCurrent && coverageOk) break;
             next = weatherProfiles[Random.Range(0, weatherProfiles.Length)];
             attempts++;
         }
 
-        // Track consecutive biased picks so we can break the loop
-        if (requireCloudy)
-            _consecutiveBiasedPicks++;
-        else
-            _consecutiveBiasedPicks = 0;
-
-        // Use internal overload so auto-cycling does not lock the weather lock flag.
         SetWeatherInternal(next);
+    }
+
+    /// <summary>
+    /// Picks the next weather using the assigned <see cref="Weather.WeatherPresetBundle"/>'s
+    /// transition rules for the current weather.  Falls back to <see cref="PickRandomWeather"/>
+    /// if the current weather has no entry or no valid transitions in the bundle.
+    /// </summary>
+    private void PickBundleWeather()
+    {
+        if (presetBundle == null) { PickRandomWeather(); return; }
+
+        Weather.WeatherBundleEntry entry = presetBundle.FindEntry(currentWeather);
+        if (entry == null || entry.allowedTransitions == null || entry.allowedTransitions.Length == 0)
+        {
+            Debug.LogWarning($"[WeatherManager] Bundle has no entry or transitions for '{currentWeather?.profileName}'. Falling back to random.");
+            PickRandomWeather();
+            _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
+            return;
+        }
+
+        // Filter transitions by time-of-day constraints
+        float tod = dayNightCycle != null ? dayNightCycle.GetCurrentTimeOfDay() : 0.5f;
+        bool isDay = tod >= 0.2f && tod <= 0.8f;
+
+        // Warn once if time-of-day constraints are in use but dayNightCycle is not assigned
+        bool hasTimeConstraints = false;
+        foreach (var rule in entry.allowedTransitions)
+            if (rule != null && (rule.dayOnly || rule.nightOnly)) { hasTimeConstraints = true; break; }
+        if (hasTimeConstraints && dayNightCycle == null)
+            Debug.LogWarning("[WeatherManager] Bundle rules use dayOnly/nightOnly constraints but no DayNightCycle is assigned. " +
+                             "Time-of-day filtering will always assume daytime (tod=0.5).");
+
+        System.Collections.Generic.List<Weather.WeatherTransitionRule> valid =
+            new System.Collections.Generic.List<Weather.WeatherTransitionRule>();
+
+        foreach (var rule in entry.allowedTransitions)
+        {
+            if (rule == null || rule.target == null) continue;
+            if (rule.dayOnly   && !isDay) continue;
+            if (rule.nightOnly &&  isDay) continue;
+            if (rule.weight   <= 0f)     continue;
+            valid.Add(rule);
+        }
+
+        // If all transitions were filtered out by time-of-day, retry ignoring constraints
+        if (valid.Count == 0)
+        {
+            Debug.Log("[WeatherManager] All bundle transitions filtered by time-of-day; ignoring constraints.");
+            foreach (var rule in entry.allowedTransitions)
+            {
+                if (rule != null && rule.target != null && rule.weight > 0f)
+                    valid.Add(rule);
+            }
+        }
+
+        if (valid.Count == 0)
+        {
+            Debug.LogWarning($"[WeatherManager] No valid bundle transitions for '{currentWeather?.profileName}'. Falling back to random.");
+            PickRandomWeather();
+            _autoWeatherTimer = Random.Range(minTimeBetweenChanges, maxTimeBetweenChanges);
+            return;
+        }
+
+        // Weighted random selection
+        float totalWeight = 0f;
+        foreach (var rule in valid) totalWeight += rule.weight;
+        float roll = Random.Range(0f, totalWeight);
+        float cumulative = 0f;
+        Weather.WeatherTransitionRule chosen = valid[valid.Count - 1];
+        foreach (var rule in valid)
+        {
+            cumulative += rule.weight;
+            if (roll <= cumulative) { chosen = rule; break; }
+        }
+
+        // Apply per-rule transition duration if set
+        float duration = chosen.GetTransitionDuration(presetBundle);
+
+        SetWeatherInternal(chosen.target, duration);
+
+        // Set the next timer using the target entry's hold times
+        Weather.WeatherBundleEntry targetEntry = presetBundle.FindEntry(chosen.target);
+        float holdMin = targetEntry != null ? targetEntry.GetMinHoldTime(presetBundle) : presetBundle.minimumHoldTime;
+        float holdMax = targetEntry != null ? targetEntry.GetMaxHoldTime(presetBundle) : presetBundle.maximumHoldTime;
+        _autoWeatherTimer = Random.Range(holdMin, holdMax);
     }
 
     /// <summary>
@@ -531,6 +641,221 @@ public class WeatherManager : MonoBehaviour
         yield return null;
         // Use internal overload so the startup transition doesn't permanently lock weather.
         SetWeatherInternal(profile);
+    }
+
+    // ─── BUNDLE HELPERS ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Returns a runtime-generated default bundle if none is assigned in the Inspector.
+    /// The bundle encodes a full meteorological severity ladder so auto-weather follows
+    /// realistic sequences (e.g. Clear → Slightly Cloudy → Partly Cloudy → ... → Heavy Storm).
+    /// </summary>
+    private Weather.WeatherPresetBundle GetOrCreateDefaultBundle()
+    {
+        var bundle = ScriptableObject.CreateInstance<Weather.WeatherPresetBundle>();
+        bundle.bundleName             = "Runtime Default Bundle";
+        bundle.description            = "Auto-generated default bundle — assign a WeatherPresetBundle asset to customise.";
+        bundle.defaultTransitionDuration = 90f;
+        bundle.minimumHoldTime        = 120f;
+        bundle.maximumHoldTime        = 480f;
+
+        // Helper: look up a profile by name from the weatherProfiles array
+        Weather.WeatherProfile Find(string name)
+        {
+            if (weatherProfiles == null) return null;
+            foreach (var p in weatherProfiles)
+                if (p != null && p.profileName == name) return p;
+            return null;
+        }
+
+        // Helper: build a WeatherTransitionRule quickly
+        Weather.WeatherTransitionRule Rule(string targetName, float weight,
+                                           float dur = -1f,
+                                           bool dayOnly = false, bool nightOnly = false)
+        {
+            var r = new Weather.WeatherTransitionRule
+            {
+                target             = Find(targetName),
+                weight             = weight,
+                transitionDuration = dur,
+                dayOnly            = dayOnly,
+                nightOnly          = nightOnly,
+            };
+            return r;
+        }
+
+        // Helper: build a WeatherBundleEntry
+        Weather.WeatherBundleEntry Entry(string name, int severity,
+                                          Weather.WeatherTransitionRule[] rules,
+                                          float minHold = -1f, float maxHold = -1f)
+        {
+            return new Weather.WeatherBundleEntry
+            {
+                profile            = Find(name),
+                severityLevel      = severity,
+                allowedTransitions = rules,
+                minHoldTime        = minHold,
+                maxHoldTime        = maxHold,
+            };
+        }
+
+        // ── Severity ladder ─────────────────────────────────────────────
+        // | Sev | Profile        | Transitions                                      |
+        // |-----|----------------|--------------------------------------------------|
+        // |  0  | Clear          | → Slightly Cloudy (3.0), → Fog (0.5, nightOnly)  |
+        // |  1  | Slightly Cloudy| → Clear (2.0), → Partly Cloudy (2.0), → Fog(0.3) |
+        // |  1  | Fog            | → Clear (1.5), → Slightly Cloudy (2.0), → PartlyCloudy (0.5) |
+        // |  2  | Partly Cloudy  | → Slightly Cloudy (2.0), → Mostly Cloudy (2.0)   |
+        // |  3  | Mostly Cloudy  | → Partly Cloudy (2.0), → Overcast (2.0), → Snow (0.5) |
+        // |  4  | Overcast       | → Mostly Cloudy (2.0), → Light Rain (2.0), → Super Cloudy (1.0), → Snow (1.0) |
+        // |  5  | Super Cloudy   | → Overcast (2.0), → Light Rain (1.5)             |
+        // |  5  | Light Rain     | → Overcast (2.0), → Super Cloudy (1.0), → Heavy Storm (1.0) |
+        // |  5  | Snow           | → Overcast (2.0), → Mostly Cloudy (1.0)          |
+        // |  6  | Heavy Storm    | → Light Rain (3.0), → Overcast (1.0)             |
+
+        bundle.entries = new Weather.WeatherBundleEntry[]
+        {
+            Entry("Clear", 0, new[]
+            {
+                Rule("Slightly Cloudy", 3.0f, 60f),
+                Rule("Fog",             0.5f, 90f, nightOnly: true),
+            }),
+            Entry("Slightly Cloudy", 1, new[]
+            {
+                Rule("Clear",          2.0f, 60f),
+                Rule("Partly Cloudy",  2.0f, 75f),
+                Rule("Fog",            0.3f, 90f),
+            }),
+            Entry("Fog", 1, new[]
+            {
+                Rule("Clear",          1.5f, 75f),
+                Rule("Slightly Cloudy",2.0f, 75f),
+                Rule("Partly Cloudy",  0.5f, 90f),
+            }),
+            Entry("Partly Cloudy", 2, new[]
+            {
+                Rule("Slightly Cloudy",2.0f, 75f),
+                Rule("Mostly Cloudy",  2.0f, 90f),
+            }),
+            Entry("Mostly Cloudy", 3, new[]
+            {
+                Rule("Partly Cloudy",  2.0f, 90f),
+                Rule("Overcast",       2.0f, 90f),
+                Rule("Snow",           0.5f, 120f),
+            }),
+            Entry("Overcast", 4, new[]
+            {
+                Rule("Mostly Cloudy",  2.0f, 90f),
+                Rule("Light Rain",     2.0f, 120f),
+                Rule("Super Cloudy",   1.0f, 90f),
+                Rule("Snow",           1.0f, 120f),
+            }),
+            Entry("Super Cloudy", 5, new[]
+            {
+                Rule("Overcast",       2.0f, 90f),
+                Rule("Light Rain",     1.5f, 120f),
+            }),
+            Entry("Light Rain", 5, new[]
+            {
+                Rule("Overcast",       2.0f, 120f),
+                Rule("Super Cloudy",   1.0f, 90f),
+                Rule("Heavy Storm",    1.0f, 150f),
+            }),
+            Entry("Snow", 5, new[]
+            {
+                Rule("Overcast",       2.0f, 120f),
+                Rule("Mostly Cloudy",  1.0f, 120f),
+            }),
+            // Heavy Storm can ONLY de-escalate — it never transitions to clear/sunny directly
+            Entry("Heavy Storm", 6, new[]
+            {
+                Rule("Light Rain",     3.0f, 120f),
+                Rule("Overcast",       1.0f, 150f),
+            }),
+        };
+
+        // Log a warning for any profiles that were not found so the user knows to
+        // ensure their weatherProfiles array is populated.
+        foreach (var entry in bundle.entries)
+        {
+            if (entry.profile == null)
+                Debug.LogWarning("[WeatherManager] GetOrCreateDefaultBundle: could not find a WeatherProfile for one or more bundle entries. " +
+                                 "Make sure all profiles are listed in the weatherProfiles array.");
+            if (entry.allowedTransitions != null)
+            {
+                foreach (var rule in entry.allowedTransitions)
+                {
+                    if (rule.target == null)
+                        Debug.LogWarning("[WeatherManager] GetOrCreateDefaultBundle: a transition rule has a null target. " +
+                                         "Make sure all profile names match exactly.");
+                }
+            }
+        }
+
+        return bundle;
+    }
+
+    /// <summary>
+    /// Logs the current bundle's full transition graph to the Console.
+    /// Useful for verifying the weather sequence in Play mode.
+    /// </summary>
+    [ContextMenu("Log Bundle Status")]
+    private void LogBundleStatus()
+    {
+        var b = presetBundle;
+        if (b == null)
+        {
+            Debug.Log("[WeatherManager] No bundle assigned. A runtime default bundle will be created when autoWeather is enabled.");
+            return;
+        }
+
+        System.Text.StringBuilder sb = new System.Text.StringBuilder();
+        sb.AppendLine($"[WeatherManager] Bundle: \"{b.bundleName}\"");
+        sb.AppendLine($"  defaultTransitionDuration = {b.defaultTransitionDuration}s");
+        sb.AppendLine($"  holdTime = {b.minimumHoldTime}–{b.maximumHoldTime}s");
+        if (b.entries != null)
+        {
+            foreach (var entry in b.entries)
+            {
+                if (entry == null) continue;
+                string pName = entry.profile != null ? entry.profile.profileName : "(null)";
+                sb.AppendLine($"  [{entry.severityLevel}] {pName}  holdTime={entry.minHoldTime}/{entry.maxHoldTime}");
+                if (entry.allowedTransitions != null)
+                {
+                    foreach (var rule in entry.allowedTransitions)
+                    {
+                        if (rule == null) continue;
+                        string tName = rule.target != null ? rule.target.profileName : "(null)";
+                        string constraints = rule.dayOnly ? " [dayOnly]" : rule.nightOnly ? " [nightOnly]" : "";
+                        float dur = rule.GetTransitionDuration(b);
+                        sb.AppendLine($"      → {tName}  w={rule.weight:F1}  dur={dur}s{constraints}");
+                    }
+                }
+            }
+        }
+        Debug.Log(sb.ToString());
+    }
+
+    /// <summary>
+    /// Context-menu helper that logs the exact configuration for a default bundle asset
+    /// to the Console. Copy-paste the output to configure a WeatherPresetBundle asset manually.
+    /// </summary>
+    [ContextMenu("Create Default Bundle (Log Config)")]
+    private void LogDefaultBundleConfig()
+    {
+        var b = GetOrCreateDefaultBundle();
+        var saved = presetBundle;
+        try
+        {
+            presetBundle = b;
+            LogBundleStatus();
+        }
+        finally
+        {
+            presetBundle = saved;
+            if (Application.isPlaying) Destroy(b);
+            else DestroyImmediate(b);
+        }
     }
 
     private void SetupVolume()
