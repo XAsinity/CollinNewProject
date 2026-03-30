@@ -1105,12 +1105,18 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetVector("_CloudDirection", new Vector4(windDir.x, windDir.y, windDir.z, 0f));
 
             // Cloud speed — use SmoothDamp so speed changes ramp naturally rather than
-            // snapping on weather transitions.
-            // Bug 2 fix: use transitionDuration * 0.5f as the smooth time so speed
-            // ramps proportionally to the transition length instead of a fixed 3 s.
+            // snapping on weather transitions. Smooth time is capped at 15s to prevent
+            // long transitions from causing overshoot / "supersonic" cloud artifacts.
             float boost = Mathf.Lerp(from.windSpeedBoost, to.windSpeedBoost, t);
             float targetCloudSpeed = _baseCloudSpeed * Mathf.Lerp(from.cloudSpeedMultiplier, to.cloudSpeedMultiplier, t) + boost;
-            _currentCloudSpeed = Mathf.SmoothDamp(_currentCloudSpeed, targetCloudSpeed, ref _cloudSpeedVelocity, cloudSpeedSmoothTime);
+            float speedSmoothTime = Mathf.Min(transitionDuration * 0.3f, 15f);
+            _currentCloudSpeed = Mathf.SmoothDamp(
+                _currentCloudSpeed, targetCloudSpeed,
+                ref _cloudSpeedVelocity, speedSmoothTime);
+            // Prevent SmoothDamp overshoot — never exceed the target by more than 20%,
+            // or 1.5× the baseline speed, whichever is larger.
+            float maxAllowed = Mathf.Max(targetCloudSpeed * 1.2f, _baseCloudSpeed * 1.5f);
+            _currentCloudSpeed = Mathf.Min(_currentCloudSpeed, maxAllowed);
             _skyboxMaterial.SetFloat("_CloudSpeed", _currentCloudSpeed);
 
             // Atmosphere overrides

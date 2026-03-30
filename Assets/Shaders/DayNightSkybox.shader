@@ -442,14 +442,16 @@ Shader "Custom/DayNightSkybox"
                 // ── FLAT-PLANE PROJECTION ───────────────────────────────────
                 // Project view ray onto horizontal plane at height shellRadius.
                 // This distributes noise evenly and eliminates zenith ring artifacts.
-                float t = shellRadius / max(ndir.y, 0.1);
+                float t = shellRadius / max(ndir.y, 0.3);
+                t = min(t, shellRadius * 3.0);  // never stretch beyond 3x shell radius
                 float3 flatPos = float3(ndir.x * t, 0.0, ndir.z * t);
 
                 // ── BLEND SPHERE AND FLAT-PLANE ─────────────────────────────
                 // At low elevations (horizon) use mostly sphere-shell for depth.
                 // At high elevations (near zenith) blend toward flat-plane to
                 // eliminate ring artifacts that appear directly overhead.
-                float blendFactor = saturate(ndir.y * zenithBlend * 2.0);
+                float rawBlend = saturate(ndir.y * zenithBlend * 2.0);
+                float blendFactor = rawBlend * rawBlend;  // quadratic falloff
                 float3 basePos = lerp(spherePos, flatPos, blendFactor);
 
                 // Scale into noise-frequency space
