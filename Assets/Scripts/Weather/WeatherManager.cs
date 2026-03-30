@@ -112,6 +112,13 @@ public class WeatherManager : MonoBehaviour
     private float _currentCloud2Speed;
     private float _cloud2SpeedVelocity;
 
+    // ─── AUTO-WEATHER BIAS COUNTER ───────────────────────────────────
+    // Tracks how many consecutive weather picks were made under the cloudy bias.
+    // After MaxConsecutiveBiasedPicks, the next pick ignores the bias to prevent
+    // locking into heavy weather forever.
+    private int _consecutiveBiasedPicks = 0;
+    private const int MaxConsecutiveBiasedPicks = 2;
+
     // Current lerped volume influence (controls _weatherVolume.weight)
     private float _currentVolumeInfluence = 0f;
 
@@ -479,13 +486,18 @@ public class WeatherManager : MonoBehaviour
         if (weatherProfiles == null || weatherProfiles.Length == 0) return;
 
         // Coverage bias: only enforce a cloudy->cloudy restriction when the current
-        // weather is truly storm-like (active precipitation). This keeps transitions
-        // natural during storms while still allowing all presets to cycle normally.
+        // weather is truly storm-like (heavy precipitation). Raise the threshold to
+        // 0.4 so light snow/drizzle does not trigger the bias. Also, after
+        // MaxConsecutiveBiasedPicks consecutive biased picks, skip the bias once to
+        // break the HeavyStorm feedback loop.
         float currentMaxCoverage = currentWeather != null ? currentWeather.cloudCoverageMax : 0f;
-        bool requireCloudy = currentWeather != null &&
-                             (currentWeather.precipitationIntensity > 0.05f ||
-                              currentWeather.precipitationType != Weather.PrecipitationType.None) &&
-                             currentMaxCoverage > autoWeatherCloudBiasThreshold;
+        bool biasEligible = currentWeather != null &&
+                            currentWeather.precipitationIntensity > 0.4f &&
+                            currentWeather.precipitationType != Weather.PrecipitationType.None &&
+                            currentMaxCoverage > autoWeatherCloudBiasThreshold;
+
+        // Force an unbiased pick after too many consecutive biased picks
+        bool requireCloudy = biasEligible && _consecutiveBiasedPicks < MaxConsecutiveBiasedPicks;
 
         Weather.WeatherProfile next = weatherProfiles[Random.Range(0, weatherProfiles.Length)];
         int attempts = 0;
@@ -497,6 +509,13 @@ public class WeatherManager : MonoBehaviour
             next = weatherProfiles[Random.Range(0, weatherProfiles.Length)];
             attempts++;
         }
+
+        // Track consecutive biased picks so we can break the loop
+        if (requireCloudy)
+            _consecutiveBiasedPicks++;
+        else
+            _consecutiveBiasedPicks = 0;
+
         // Use internal overload so auto-cycling does not lock the weather lock flag.
         SetWeatherInternal(next);
     }
@@ -587,7 +606,7 @@ public class WeatherManager : MonoBehaviour
             // ramps proportionally to the transition length instead of a fixed 3 s.
             float boost = Mathf.Lerp(from.windSpeedBoost, to.windSpeedBoost, t);
             float targetCloudSpeed = _baseCloudSpeed * Mathf.Lerp(from.cloudSpeedMultiplier, to.cloudSpeedMultiplier, t) + boost;
-            _currentCloudSpeed = Mathf.SmoothDamp(_currentCloudSpeed, targetCloudSpeed, ref _cloudSpeedVelocity, transitionDuration * 0.8f);
+            _currentCloudSpeed = Mathf.SmoothDamp(_currentCloudSpeed, targetCloudSpeed, ref _cloudSpeedVelocity, cloudSpeedSmoothTime);
             _skyboxMaterial.SetFloat("_CloudSpeed", _currentCloudSpeed);
 
             // Atmosphere overrides
