@@ -156,6 +156,12 @@ namespace Weather
                  "Higher values = more dramatic storm roll-off (e.g. 1.0 for Heavy Storm).")]
         public float stormRollSpeed = 0f;
 
+        [Range(0f, 0.5f)]
+        [Tooltip("How dramatically this weather's clouds roll in from the horizon when transitioning to this profile. " +
+                 "0 = clouds appear uniformly (gentle profiles like Clear/Slightly Cloudy). " +
+                 "Higher values = more dramatic roll-in from the distance (e.g. 0.18 for Heavy Storm).")]
+        public float stormRollInSpeed = 0f;
+
         // ─── PRECIPITATION ───────────────────────────────────────────
 
         [Header("Precipitation")]
@@ -290,6 +296,7 @@ namespace Weather
             cloudEdgeSoftness = 0.25f; cloudVariation = 0.4f;
             volumeInfluence = 0.0f; // fully defer to DayNightVolumeController
             stormRollSpeed = 0f;
+            stormRollInSpeed = 0f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 300f; maxDuration = 3600f; transitionDurationOverride = 0f;
@@ -321,12 +328,11 @@ namespace Weather
             cloudEdgeSoftness = 0.22f; cloudVariation = 0.5f;
             volumeInfluence = 0.1f;
             stormRollSpeed = 0f;
+            stormRollInSpeed = 0f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 180f; maxDuration = 2100f; transitionDurationOverride = 0f;
         }
-
-        [ContextMenu("Preset: Partly Cloudy")]
         private void PresetPartlyCloudy()
         {
             profileName = "Partly Cloudy";
@@ -352,6 +358,7 @@ namespace Weather
             cloudEdgeSoftness = 0.18f; cloudVariation = 0.65f;
             volumeInfluence = 0.2f;
             stormRollSpeed = 0.02f;
+            stormRollInSpeed = 0.03f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 120f; maxDuration = 1800f; transitionDurationOverride = 0f;
@@ -383,6 +390,7 @@ namespace Weather
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.6f;
             volumeInfluence = 0.5f;
             stormRollSpeed = 0.04f;
+            stormRollInSpeed = 0.05f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 0f;
@@ -414,6 +422,7 @@ namespace Weather
             cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
             volumeInfluence = 0.75f;
             stormRollSpeed = 0.06f;
+            stormRollInSpeed = 0.08f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 0f;
@@ -445,6 +454,7 @@ namespace Weather
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.35f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.08f;
+            stormRollInSpeed = 0.1f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 60f; maxDuration = 1200f; transitionDurationOverride = 0f;
@@ -476,6 +486,7 @@ namespace Weather
             cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.1f;
+            stormRollInSpeed = 0.12f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 0f;
@@ -507,6 +518,7 @@ namespace Weather
             cloudEdgeSoftness = 0.08f; cloudVariation = 0.3f;
             volumeInfluence = 1.0f; // fully override TOD volume during a storm
             stormRollSpeed = 0.15f;
+            stormRollInSpeed = 0.18f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 60f; maxDuration = 1200f; transitionDurationOverride = 120f;
@@ -539,6 +551,7 @@ namespace Weather
             cloudEdgeSoftness = 0.3f; cloudVariation = 0.2f;
             volumeInfluence = 0.90f;
             stormRollSpeed = 0.02f;
+            stormRollInSpeed = 0.03f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 90f;
@@ -570,6 +583,7 @@ namespace Weather
             cloudEdgeSoftness = 0.15f; cloudVariation = 0.5f;
             volumeInfluence = 0.6f;
             stormRollSpeed = 0.06f;
+            stormRollInSpeed = 0.08f;
             windSpeedBoost = 0f;
             cloudZenithBlend = 0.4f;
             minDuration = 120f; maxDuration = 1500f; transitionDurationOverride = 0f;

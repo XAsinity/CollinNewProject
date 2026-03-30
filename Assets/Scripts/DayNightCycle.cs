@@ -39,6 +39,7 @@ public class DayNightCycle : MonoBehaviour
 
     private float currentTimeOfDay;
     private bool isPaused = false;
+    private float _timeScaleMultiplier = 1f;
 
     // ─── WEATHER MULTIPLIERS (set by WeatherManager) ──────────────
     private float _sunIntensityMultiplier   = 1f;
@@ -58,7 +59,7 @@ public class DayNightCycle : MonoBehaviour
     {
         if (!isPaused)
         {
-            currentTimeOfDay += Time.deltaTime / dayLengthInSeconds;
+            currentTimeOfDay += Time.deltaTime * _timeScaleMultiplier / dayLengthInSeconds;
             if (currentTimeOfDay >= 1f) currentTimeOfDay -= 1f;
         }
 
@@ -158,6 +159,10 @@ public class DayNightCycle : MonoBehaviour
     public void SetAmbientColorTint(Color tint)         => _ambientColorTint        = tint;
     /// <summary>Called by WeatherManager to scale fog density.</summary>
     public void SetFogMultiplier(float value)           => _fogMultiplier           = Mathf.Max(0f, value);
+    /// <summary>Called by WeatherManager to speed up (or slow down) the day/night cycle for debug purposes.
+    /// Only affects the internal time-of-day advancement — does NOT touch Time.timeScale.</summary>
+    public void SetTimeScaleMultiplier(float value) => _timeScaleMultiplier = Mathf.Max(0f, value);
+
     /// <summary>Called by WeatherManager to override the time-of-day fog color.</summary>
     public void SetFogColorOverride(Color color, bool enable)
     {

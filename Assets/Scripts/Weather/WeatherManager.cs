@@ -35,7 +35,7 @@ public class WeatherManager : MonoBehaviour
 
     [Header("Transition")]
     [Tooltip("Duration in seconds to smoothly blend between weather states (used when no bundle rule overrides it)")]
-    public float transitionDuration = 90f;
+    public float transitionDuration = 120f;
 
     [Header("Auto Weather")]
     [Tooltip("Automatically cycle through random weather conditions over time")]
@@ -57,8 +57,16 @@ public class WeatherManager : MonoBehaviour
              "and once when a transition completes. Useful for diagnosing cloud speed, coverage, or visual issues.")]
     [SerializeField] private bool debugLogClouds = false;
 
-    [Tooltip("How often to log cloud debug info during transitions (every N frames). Default: 30 (~0.5s at 60fps).")]
-    [SerializeField] private int debugLogInterval = 30;
+    [Tooltip("How often to log cloud debug info during transitions (in seconds). Default: 2.0")]
+    [SerializeField] private float debugLogInterval = 2.0f;
+
+    [Header("Debug Time")]
+    [Tooltip("Multiplies Time.deltaTime for weather transitions and auto-weather timer only. Does NOT affect Time.timeScale (physics, animations are unaffected).")]
+    [Range(1f, 50f)]
+    public float debugTimeScale = 1f;
+
+    [Tooltip("When enabled, logs a message to the Console whenever debugTimeScale changes value.")]
+    public bool debugLogTimeScale = false;
 
     [Header("Auto Refresh")]
     [Tooltip("When enabled, the active weather profile's Inspector values are pushed to the shader " +
@@ -138,8 +146,17 @@ public class WeatherManager : MonoBehaviour
     private float _currentVolumeInfluence = 0f;
 
     // ─── DEBUG LOGGING STATE ─────────────────────────────────────────
-    private bool _debugLoggedCompletion = false;
-    private int  _debugLogFrameCounter  = 0;
+    private bool  _debugLoggedCompletion = false;
+    private float _debugLogNextTime      = 0f;
+
+    // ─── INCOMING CLOUD DISSOLVE ─────────────────────────────────────
+    // Set at transition start; decays to zero by transition end to simulate
+    // incoming clouds rolling in from the horizon.
+    private Vector4 _incomingDissolveOffset  = Vector4.zero;
+    private Vector4 _incomingDissolveInitial = Vector4.zero;
+
+    // ─── DEBUG TIME SCALE TRACKING ───────────────────────────────────
+    private float _lastDebugTimeScale = 1f;
 
     // ─── LIFECYCLE ───────────────────────────────────────────────────
 
@@ -369,6 +386,21 @@ public class WeatherManager : MonoBehaviour
 
     void Update()
     {
+        // ── Debug time scale: log when value changes ──────────────────
+        if (debugLogTimeScale && !Mathf.Approximately(debugTimeScale, _lastDebugTimeScale))
+        {
+            _lastDebugTimeScale = debugTimeScale;
+            Debug.Log($"[WeatherManager:Debug] Time scale set to {debugTimeScale}x");
+        }
+        else
+        {
+            _lastDebugTimeScale = debugTimeScale;
+        }
+
+        // ── Propagate debug time scale to day/night cycle ─────────────
+        if (dayNightCycle != null)
+            dayNightCycle.SetTimeScaleMultiplier(debugTimeScale);
+
         // Detect if the user changed the currentWeather field in the Inspector during Play mode.
         // OnValidate doesn't always fire reliably for MonoBehaviours, so this Update() check
         // acts as a runtime safety net.
@@ -391,13 +423,13 @@ public class WeatherManager : MonoBehaviour
             if (_sourceWeather != null && _sourceWeather.stormRollSpeed > 0f)
             {
                 Vector3 windDir = _sourceWeather.windDirection.normalized;
-                _dissolveOffset.x += windDir.x * _sourceWeather.stormRollSpeed * Time.deltaTime;
-                _dissolveOffset.y += windDir.z * _sourceWeather.stormRollSpeed * Time.deltaTime;
+                _dissolveOffset.x += windDir.x * _sourceWeather.stormRollSpeed * Time.deltaTime * debugTimeScale;
+                _dissolveOffset.y += windDir.z * _sourceWeather.stormRollSpeed * Time.deltaTime * debugTimeScale;
 
                 // Clamp the dissolve offset so it never exceeds a reasonable value in noise
                 // space. Without this cap a long transition at high stormRollSpeed would
                 // push the offset to dozens of units, making clouds appear to race forward.
-                float maxDissolve = 2.0f;
+                float maxDissolve = 4.0f;
                 float mag = new Vector2(_dissolveOffset.x, _dissolveOffset.y).magnitude;
                 if (mag > maxDissolve)
                 {
@@ -406,8 +438,14 @@ public class WeatherManager : MonoBehaviour
                 }
             }
 
-            _transitionProgress += Time.deltaTime / Mathf.Max(0.01f, _activeTransitionDuration);
+            _transitionProgress += Time.deltaTime * debugTimeScale / Mathf.Max(0.01f, _activeTransitionDuration);
             _transitionProgress = Mathf.Clamp01(_transitionProgress);
+
+            // Compute incoming dissolve offset — starts at the initial value set when the
+            // transition began and linearly decays to zero as the transition completes.
+            // This makes incoming storm clouds appear to roll in from the horizon.
+            _incomingDissolveOffset = Vector4.Lerp(_incomingDissolveInitial, Vector4.zero, _transitionProgress);
+
             ApplyWeatherLerp(_sourceWeather, _targetWeather, _transitionProgress);
 
             if (debugLogClouds)
@@ -420,19 +458,18 @@ public class WeatherManager : MonoBehaviour
                         LogCloudDebugInfo();
                     }
                 }
-                else
+                else if (Time.time >= _debugLogNextTime)
                 {
-                    _debugLogFrameCounter++;
-                    if (_debugLogFrameCounter >= debugLogInterval)
-                    {
-                        _debugLogFrameCounter = 0;
-                        LogCloudDebugInfo();
-                    }
+                    _debugLogNextTime = Time.time + debugLogInterval;
+                    LogCloudDebugInfo();
                 }
             }
         }
         else
         {
+            // After transition: reset incoming dissolve and let departing dissolve decay.
+            _incomingDissolveOffset = Vector4.zero;
+
             // Auto-refresh: re-apply the active profile every frame so any Inspector edits
             // to the WeatherProfile asset are immediately visible without triggering a
             // new transition. Coverage values are kept stable (no random re-roll).
@@ -460,7 +497,7 @@ public class WeatherManager : MonoBehaviour
         // SetWeather() call, so manually chosen conditions are never overridden automatically.
         if (autoWeather && !_weatherLocked && weatherProfiles != null && weatherProfiles.Length > 1)
         {
-            _autoWeatherTimer -= Time.deltaTime;
+            _autoWeatherTimer -= Time.deltaTime * debugTimeScale;
             if (_autoWeatherTimer <= 0f)
             {
                 if (presetBundle != null)
@@ -548,13 +585,34 @@ public class WeatherManager : MonoBehaviour
         _toCoverage = Random.Range(profile.cloudCoverageMin, profile.cloudCoverageMax);
         _toCoverage2 = Random.Range(profile.cloud2CoverageMin, profile.cloud2CoverageMax);
 
-        // Reset the dissolve offset at the start of each transition so each
-        // storm departure begins from a neutral scroll position.
+        // Reset the dissolve offsets at the start of each transition so each
+        // storm departure begins from a neutral scroll position, and the incoming
+        // roll-in starts at its maximum value.
         _dissolveOffset = Vector4.zero;
+
+        // Pre-compute the starting incoming dissolve offset for this transition.
+        // The offset begins large (in the opposite direction of the target wind) and
+        // decays to zero by the time the transition completes, creating the visual of
+        // clouds rolling in from the horizon and settling into position.
+        if (profile.stormRollInSpeed > 0f)
+        {
+            Vector3 targetWind = profile.windDirection.normalized;
+            float maxDissolve = 4.0f;
+            float initialMag = Mathf.Min(profile.stormRollInSpeed * Mathf.Max(_activeTransitionDuration, 30f), maxDissolve);
+            _incomingDissolveInitial = new Vector4(
+                -targetWind.x * initialMag,
+                -targetWind.z * initialMag,
+                0f, 0f);
+        }
+        else
+        {
+            _incomingDissolveInitial = Vector4.zero;
+        }
+        _incomingDissolveOffset = _incomingDissolveInitial;
 
         _transitionProgress = 0f;
         _debugLoggedCompletion = false;
-        _debugLogFrameCounter  = 0;
+        _debugLogNextTime      = 0f;
 
         if (debugLogClouds)
         {
@@ -670,13 +728,13 @@ public class WeatherManager : MonoBehaviour
     [ContextMenu("Reset To Recommended Defaults")]
     private void ResetToRecommendedDefaults()
     {
-        transitionDuration      = 90f;
+        transitionDuration      = 120f;
         minTimeBetweenChanges   = 180f;
         maxTimeBetweenChanges   = 1500f;
         autoWeather             = true;
         autoRefreshProfile      = false;
         Debug.Log("[WeatherManager] Reset To Recommended Defaults applied: " +
-                  "transitionDuration=90s, minTimeBetweenChanges=180s, maxTimeBetweenChanges=1500s, " +
+                  "transitionDuration=120s, minTimeBetweenChanges=180s, maxTimeBetweenChanges=1500s, " +
                   "autoWeather=true, autoRefreshProfile=false.");
     }
 
@@ -1124,9 +1182,10 @@ public class WeatherManager : MonoBehaviour
                       $"  density={density2:F3}  sharpness={sharpness2:F3}  scale={scale2:F3}" +
                       $"  opacity={opacity2:F3}  brightness={brightness2:F3}  darkness={darkness2:F3}");
         sb.AppendLine($"  Wind: direction=({windDir.x:F3},{windDir.y:F3},{windDir.z:F3})  speedBoost={boost:F4}");
-        sb.AppendLine($"  DissolveOffset=({_dissolveOffset.x:F4},{_dissolveOffset.y:F4})  ZenithBlend={zenithBlend:F3}");
+        sb.AppendLine($"  DepartDissolve=({_dissolveOffset.x:F4},{_dissolveOffset.y:F4})  " +
+                      $"IncomingDissolve=({_incomingDissolveOffset.x:F4},{_incomingDissolveOffset.y:F4})  ZenithBlend={zenithBlend:F3}");
         sb.AppendLine($"  SmoothDamp velocities: layer1={_cloudSpeedVelocity:F4}  layer2={_cloud2SpeedVelocity:F4}");
-        sb.Append(    $"  VolumeInfluence={_currentVolumeInfluence:F3}");
+        sb.Append(    $"  VolumeInfluence={_currentVolumeInfluence:F3}  TimeScale={debugTimeScale:F1}x");
         Debug.Log(sb.ToString());
     }
 
@@ -1250,9 +1309,10 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetColor("_Cloud2ShadowColor", Color.Lerp(from.cloud2ShadowColor, to.cloud2ShadowColor, t));
             _skyboxMaterial.SetFloat("_Cloud2Opacity",     Mathf.Lerp(from.cloud2Opacity,     to.cloud2Opacity,     t));
 
-            // Directional dissolve offset — shifts cloud noise UVs so departing storms
-            // appear to roll away in the wind direction rather than fading uniformly.
-            _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset);
+            // Directional dissolve offset — combines the departing storm rolling away
+            // (positive direction) with incoming clouds rolling in from the horizon
+            // (negative direction, decays to zero as transition completes).
+            _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset + _incomingDissolveOffset);
 
             // Cloud Zenith Blend — lerp the zenith-ring suppression parameter
             _skyboxMaterial.SetFloat("_CloudZenithBlend",
