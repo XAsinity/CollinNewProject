@@ -515,15 +515,17 @@ Shader "Custom/DayNightSkybox"
                 if (dissolveMag > 0.001)
                     arrivalFactor = lerp(arrivalFactor, dot(ndir.xz, normalize(dissolveDir)), 0.3);
                 // Spread the gradient width using edgeSoftness so the transition is smooth
-                float gradientWidth = lerp(0.8, 2.0, saturate(edgeSoftness));
+                float gradientWidth = lerp(1.5, 2.5, saturate(edgeSoftness));
                 float dirCoverage = coverage * smoothstep(-gradientWidth, gradientWidth,
                                     arrivalFactor + coverage * 2.0 - 1.0);
                 // Fade out directional bias as coverage increases so that at high coverage
                 // (0.7+) the whole sky fills uniformly rather than leaving the leeward half
                 // cloudless.  Low coverage (0–0.4) keeps the beautiful directional roll-in.
-                // The 0.4→0.7 ramp was chosen so the transition completes well before
-                // coverage reaches "overcast" territory (~0.7) where full-sky fill is expected.
-                float dirBias = 1.0 - smoothstep(0.4, 0.7, coverage);
+                // At very low coverage (below ~15%) the directional effect is faded in via
+                // smoothstep so clouds appear uniformly instead of only on the narrow windward
+                // edge, preventing the "mini clouds appear and vanish" artifact at transition start.
+                float dirBias = 1.0 - smoothstep(0.25, 0.6, coverage);
+                dirBias *= smoothstep(0.02, 0.15, coverage);
                 float effectiveCoverage = lerp(coverage, dirCoverage, dirBias);
 
                 // ── PRELIMINARY CLOUD MASK for core detail weighting ────────
