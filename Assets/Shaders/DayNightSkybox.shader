@@ -983,6 +983,12 @@ Shader "Custom/DayNightSkybox"
                     float opticalThickness = _CloudDensity * (0.3 + _CloudDarkness * 0.7);
                     float discOcclusion = saturate(cloudAlpha * opticalThickness);
                     cloudOcclusion = 1.0 - discOcclusion;
+
+                    // Dim background sky (stars, nebula, aurora, dust) behind dense clouds
+                    // so they don't bleed through at high cloud coverage.
+                    // Applied here, BEFORE sun/moon discs are added, so their dedicated
+                    // cloudOcclusion path is unaffected and they are not double-attenuated.
+                    col *= lerp(1.0, 0.05, saturate(cloudAlpha * 1.5));
                 }
 
                 // ─── SUN DISC ─────────────────────────────────────
@@ -1001,12 +1007,7 @@ Shader "Custom/DayNightSkybox"
 
                 // ─── PROCEDURAL CLOUDS — composite ────────────────
                 if (_EnableClouds > 0.5)
-                {
-                    // Dim background sky (stars, nebula, aurora, dust) behind dense clouds
-                    // so they don't bleed through at high cloud coverage.
-                    col *= lerp(1.0, 0.05, saturate(cloudAlpha * 1.5));
                     col = lerp(col, cloudColor, cloudAlpha);
-                }
                 // ─── HORIZON HAZE ─────────────────────────────────────────
                 // Haze color is derived automatically from sky + cloud colors, adapting
                 // to both time of day and active weather — no separate color property needed.
