@@ -1202,7 +1202,7 @@ public class WeatherManager : MonoBehaviour
             // long transitions from causing overshoot / "supersonic" cloud artifacts.
             float boost = Mathf.Lerp(from.windSpeedBoost, to.windSpeedBoost, t);
             float targetCloudSpeed = _baseCloudSpeed * Mathf.Lerp(from.cloudSpeedMultiplier, to.cloudSpeedMultiplier, t) + boost;
-            float cloudSmoothTime = Mathf.Min(transitionDuration * 0.25f, 10f);
+            float cloudSmoothTime = Mathf.Min(cloudSpeedSmoothTime, 10f);
             _currentCloudSpeed = Mathf.SmoothDamp(
                 _currentCloudSpeed, targetCloudSpeed,
                 ref _cloudSpeedVelocity, cloudSmoothTime);
@@ -1240,7 +1240,7 @@ public class WeatherManager : MonoBehaviour
             // Cloud Layer 2 speed — independent SmoothDamp using Layer 2's own base
             // and multipliers. _cloud2SpeedVelocity is never shared with Layer 1.
             float targetCloud2Speed = _baseCloud2Speed * Mathf.Lerp(from.cloud2SpeedMultiplier, to.cloud2SpeedMultiplier, t) + boost;
-            float cloud2SmoothTime = Mathf.Min(transitionDuration * 0.25f, 10f);
+            float cloud2SmoothTime = Mathf.Min(cloudSpeedSmoothTime, 10f);
             _currentCloud2Speed = Mathf.SmoothDamp(_currentCloud2Speed, targetCloud2Speed, ref _cloud2SpeedVelocity, cloud2SmoothTime);
             _currentCloud2Speed = Mathf.Clamp(_currentCloud2Speed, 0f, targetCloud2Speed * 1.2f);
             _skyboxMaterial.SetFloat("_Cloud2Speed", _currentCloud2Speed);
