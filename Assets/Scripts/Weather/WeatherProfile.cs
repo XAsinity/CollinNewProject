@@ -401,7 +401,7 @@ namespace Weather
         {
             profileName = "Overcast";
             cloudCoverageMin = 0.85f; cloudCoverageMax = 0.95f;
-            cloudDensityMultiplier = 1.4f; cloudSharpnessMultiplier = 1.3f; cloudBrightness = 0.75f; cloudDarkness = 0.6f;
+            cloudDensityMultiplier = 1.4f; cloudSharpnessMultiplier = 1.3f; cloudBrightness = 0.75f; cloudDarkness = 0.68f;
             cloudColor = new Color(0.75f, 0.76f, 0.80f, 1f);
             cloudShadowColor = new Color(0.22f, 0.22f, 0.28f, 1f);
             cloudScaleMultiplier = 1.2f; cloudSpeedMultiplier = 1.05f;
@@ -416,10 +416,10 @@ namespace Weather
             horizonHazeStrength = 0.6f; horizonHazeHeight = 0.25f; horizonHazeFalloff = 1.8f;
             cloud2CoverageMin = 0.4f; cloud2CoverageMax = 0.7f;
             cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.0f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.0f;
-            cloud2Brightness = 0.65f; cloud2Darkness = 0.65f;
+            cloud2Brightness = 0.65f; cloud2Darkness = 0.72f;
             cloud2Color = new Color(0.55f, 0.56f, 0.62f, 1f); cloud2ShadowColor = new Color(0.18f, 0.18f, 0.24f, 1f);
             cloud2Opacity = 0.60f;
-            cloudEdgeSoftness = 0.12f; cloudVariation = 0.45f;
+            cloudEdgeSoftness = 0.12f; cloudVariation = 0.35f;
             volumeInfluence = 0.75f;
             stormRollSpeed = 0.06f;
             stormRollInSpeed = 0.08f;
@@ -465,7 +465,7 @@ namespace Weather
         {
             profileName = "Light Rain";
             cloudCoverageMin = 0.7f; cloudCoverageMax = 0.85f;
-            cloudDensityMultiplier = 1.3f; cloudSharpnessMultiplier = 1.2f; cloudBrightness = 0.7f; cloudDarkness = 0.6f;
+            cloudDensityMultiplier = 1.3f; cloudSharpnessMultiplier = 1.2f; cloudBrightness = 0.7f; cloudDarkness = 0.75f;
             cloudColor = new Color(0.58f, 0.61f, 0.68f, 1f);
             cloudShadowColor = new Color(0.20f, 0.21f, 0.26f, 1f);
             cloudScaleMultiplier = 1.1f; cloudSpeedMultiplier = 1.1f;
@@ -480,10 +480,10 @@ namespace Weather
             horizonHazeStrength = 0.55f; horizonHazeHeight = 0.2f; horizonHazeFalloff = 2.2f;
             cloud2CoverageMin = 0.3f; cloud2CoverageMax = 0.6f;
             cloud2DensityMultiplier = 1.1f; cloud2SharpnessMultiplier = 1.1f; cloud2ScaleMultiplier = 0.9f; cloud2SpeedMultiplier = 1.0f;
-            cloud2Brightness = 0.55f; cloud2Darkness = 0.70f;
+            cloud2Brightness = 0.55f; cloud2Darkness = 0.78f;
             cloud2Color = new Color(0.42f, 0.44f, 0.52f, 1f); cloud2ShadowColor = new Color(0.15f, 0.15f, 0.20f, 1f);
             cloud2Opacity = 0.70f;
-            cloudEdgeSoftness = 0.1f; cloudVariation = 0.4f;
+            cloudEdgeSoftness = 0.07f; cloudVariation = 0.3f;
             volumeInfluence = 0.85f;
             stormRollSpeed = 0.1f;
             stormRollInSpeed = 0.12f;
