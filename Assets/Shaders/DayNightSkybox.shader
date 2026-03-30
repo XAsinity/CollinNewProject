@@ -782,10 +782,13 @@ Shader "Custom/DayNightSkybox"
                         float3 timeColor2 = lerp(_CloudNightColor.rgb, _CloudDayColor.rgb, dayFactor);
                         timeColor2 = lerp(timeColor2, _CloudSunsetColor.rgb, sunsetFactor * 0.8);
                         float3 tintedColor2 = timeColor2 * _Cloud2Color.rgb;
-                        float3 litColor2 = tintedColor2 * _Cloud2Brightness;
-                        float3 edgeBright2 = litColor2 * lerp(1.5, 1.0, density2);
-                        float selfShadow2 = 1.0 - _Cloud2Darkness * density2 * 0.7;
-                        float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, edgeBright2, saturate(density2 * 0.8 + 0.2));
+                        // Thickness: 1.3 scales density into a wider range, 1.6 exponent creates realistic depth falloff
+                        float thickness2 = pow(saturate(density2 * 1.3), 1.6);
+                        // Rim light slightly softer for high-altitude Layer 2 (0.25 vs 0.3 for Layer 1)
+                        float rimLight2 = 1.0 + 0.25 * pow(saturate(1.0 - density2), 2.0);
+                        float3 litColor2 = tintedColor2 * _Cloud2Brightness * rimLight2;
+                        float selfShadow2 = 1.0 - _Cloud2Darkness * thickness2;
+                        float3 shadowBlend2 = lerp(_Cloud2ShadowColor.rgb, litColor2, saturate(density2 * 1.2));
                         cloudColor2 = shadowBlend2 * selfShadow2;
                         // Subtle low-frequency color variation using flat-plane projection
                         float t_color2 = _Cloud2ShellRadius / max(abs(normalize(dir).y), 0.02);
@@ -814,14 +817,18 @@ Shader "Custom/DayNightSkybox"
                 // density close to 0 = thin edge = brighter (silver lining)
                 float3 litColor = tintedColor * _CloudBrightness;
 
-                // Silver lining on edges (low density = bright rim light)
-                float3 edgeBright = litColor * lerp(1.5, 1.0, density);
+                // Silver-lining rim light on thin edges (gentler than before; 0.3 for Layer 1 vs 0.25 for Layer 2 — slightly stronger at lower altitude)
+                float rimLight = 1.0 + 0.3 * pow(saturate(1.0 - density), 2.0);
+                litColor *= rimLight;
 
-                // Self-shadow on dense cores (high density = darker base)
-                float selfShadow = 1.0 - _CloudDarkness * density * 0.7;
+                // Thickness simulation using power curve — 1.3 scales density range, 1.6 exponent creates realistic depth falloff
+                float thickness = pow(saturate(density * 1.3), 1.6);
 
-                // Blend between shadow color (deep) and lit color (surface)
-                float3 shadowBlend = lerp(_CloudShadowColor.rgb, edgeBright, saturate(density * 0.8 + 0.2));
+                // Stronger self-shadow so dense cloud cores are visibly darker
+                float selfShadow = 1.0 - _CloudDarkness * thickness;
+
+                // No brightness floor on thin wisps — proper shadow-to-light gradient
+                float3 shadowBlend = lerp(_CloudShadowColor.rgb, litColor, saturate(density * 1.2));
                 float3 cloudColorResult = shadowBlend * selfShadow;
                 // Subtle low-frequency color variation — breaks uniform tint across large cloud formations
                 float t_color1 = _CloudShellRadius / max(abs(normalize(dir).y), 0.02);

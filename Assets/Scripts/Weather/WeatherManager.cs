@@ -270,7 +270,6 @@ public class WeatherManager : MonoBehaviour
             _skyboxMaterial.SetFloat("_HorizonHazeFalloff",    4f);
             _skyboxMaterial.SetFloat("_StarBrightness",         1.2f);
             _skyboxMaterial.SetVector("_CloudDissolveOffset", Vector4.zero);
-            _skyboxMaterial.SetFloat("_CloudZenithBlend",     0.4f);
         }
         if (dayNightCycle != null)
         {
@@ -347,7 +346,6 @@ public class WeatherManager : MonoBehaviour
                 _skyboxMaterial.SetFloat("_HorizonHazeHeight",     0.1f);
                 _skyboxMaterial.SetFloat("_HorizonHazeFalloff",    4f);
                 _skyboxMaterial.SetFloat("_StarBrightness",        1.2f);
-                _skyboxMaterial.SetFloat("_CloudZenithBlend",      0.4f);
             }
         }
 
@@ -1336,10 +1334,6 @@ public class WeatherManager : MonoBehaviour
             // (positive direction) with incoming clouds rolling in from the horizon
             // (negative direction, decays to zero as transition completes).
             _skyboxMaterial.SetVector("_CloudDissolveOffset", _dissolveOffset + _incomingDissolveOffset);
-
-            // Cloud Zenith Blend — lerp the zenith-ring suppression parameter
-            _skyboxMaterial.SetFloat("_CloudZenithBlend",
-                Mathf.Lerp(from.cloudZenithBlend, to.cloudZenithBlend, t));
         }
 
         // ── Apply DayNightCycle multipliers
