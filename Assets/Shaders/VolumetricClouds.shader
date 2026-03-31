@@ -216,10 +216,9 @@ Shader "Custom/VolumetricClouds"
                 float3 p = shellPt + dissolveOff
                          + float3(layerSeed * 3.7, layerSeed * 2.1, layerSeed * 1.3);
 
-                // Base shape from three-octave FBM blend
-                float baseShape = FBM(p)              * 0.40
-                                + FBM(p * float3(1.0, 0.97, 1.0)) * 0.35
-                                + FBM(p * float3(1.0, 0.94, 1.0)) * 0.25;
+                // Base shape from two-layer FBM blend
+                float baseShape = FBM(p)                            * 0.5
+                                + FBM(p * float3(1.0, 0.97, 1.0))  * 0.5;
 
                 // Mid-frequency detail and high-frequency wisps
                 float wispW = lerp(0.05, 0.15, saturate(variation));
@@ -393,6 +392,9 @@ Shader "Custom/VolumetricClouds"
 
             float4 Frag(Varyings IN) : SV_Target
             {
+                // Skip expensive raymarching for tiny preview renders (e.g. Inspector material preview)
+                if (_ScreenParams.x < 256) return half4(0.7, 0.7, 0.8, 0.5);
+
                 if (_EnableClouds < 0.5) return float4(0, 0, 0, 0);
 
                 // ── Reconstruct world-space view direction from NDC ─────────

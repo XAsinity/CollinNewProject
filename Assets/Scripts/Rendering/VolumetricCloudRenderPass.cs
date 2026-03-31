@@ -89,7 +89,7 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
             //
             // GL.GetGPUProjectionMatrix accounts for platform-specific clip-space
             // conventions (e.g. reversed Z on DX12/Vulkan, Y-flip on Metal).
-            Matrix4x4 gpuProj    = GL.GetGPUProjectionMatrix(cam.projectionMatrix, false);
+            Matrix4x4 gpuProj    = GL.GetGPUProjectionMatrix(cam.projectionMatrix, true);
             Matrix4x4 invProj    = gpuProj.inverse;
             Matrix4x4 invView    = cam.cameraToWorldMatrix;   // camera → world (rotation + translation)
 
