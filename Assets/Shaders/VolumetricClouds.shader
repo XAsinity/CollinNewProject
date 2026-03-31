@@ -136,7 +136,7 @@ Shader "Custom/VolumetricClouds"
             {
                 Varyings OUT;
                 float2 uv = float2((IN.vertexID << 1) & 2, IN.vertexID & 2);
-                OUT.posCS  = float4(uv * float2(2.0, -2.0) + float2(-1.0, 1.0), 0.0, 1.0);
+                OUT.posCS  = float4(uv * 2.0 - 1.0, 0.0, 1.0);
                 OUT.ndcPos = OUT.posCS.xy;
                 return OUT;
             }
@@ -398,7 +398,7 @@ Shader "Custom/VolumetricClouds"
                 if (_EnableClouds < 0.5) return float4(0, 0, 0, 0);
 
                 // ── Reconstruct world-space view direction from NDC ─────────
-                float4 viewPos = mul(_InvProjectionMatrix, float4(IN.ndcPos, 1.0, 1.0));
+                float4 viewPos = mul(_InvProjectionMatrix, float4(IN.ndcPos, UNITY_RAW_FAR_CLIP_VALUE, 1.0));
                 float3 viewDir = normalize(mul((float3x3)_CloudCameraInvView, viewPos.xyz / viewPos.w));
 
                 // Above-horizon guard (clouds never appear underground)
