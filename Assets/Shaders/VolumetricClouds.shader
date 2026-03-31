@@ -67,7 +67,7 @@ Shader "Custom/VolumetricClouds"
 
             // ─── CAMERA MATRICES (set from C# render pass) ──────────────────
             float4x4 _InvProjectionMatrix;
-            float4x4 _InvViewMatrix;
+            float4x4 _CloudCameraInvView;
 
             // ─── CONSTANTS ───────────────────────────────────────────────────
             #define EPSILON 0.0001
@@ -397,7 +397,7 @@ Shader "Custom/VolumetricClouds"
 
                 // ── Reconstruct world-space view direction from NDC ─────────
                 float4 viewPos = mul(_InvProjectionMatrix, float4(IN.ndcPos, 1.0, 1.0));
-                float3 viewDir = normalize(mul((float3x3)_InvViewMatrix, viewPos.xyz / viewPos.w));
+                float3 viewDir = normalize(mul((float3x3)_CloudCameraInvView, viewPos.xyz / viewPos.w));
 
                 // Above-horizon guard (clouds never appear underground)
                 if (viewDir.y < 0.005) return float4(0, 0, 0, 0);

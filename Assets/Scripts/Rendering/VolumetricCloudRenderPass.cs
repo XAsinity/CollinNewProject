@@ -69,6 +69,7 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
         public void Cleanup()           => _material = null;
 
         /// <inheritdoc/>
+#pragma warning disable CS0618 // URP Compatibility Mode API — obsolete in URP 17+, retained for compatibility
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             // Attach to the camera colour target without clearing it.
@@ -93,7 +94,7 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
             Matrix4x4 invView    = cam.cameraToWorldMatrix;   // camera → world (rotation + translation)
 
             _material.SetMatrix("_InvProjectionMatrix", invProj);
-            _material.SetMatrix("_InvViewMatrix",       invView);
+            _material.SetMatrix("_CloudCameraInvView",  invView);
 
             CommandBuffer cmd = CommandBufferPool.Get(k_Tag);
             using (new ProfilingScope(cmd, s_Sampler))
@@ -109,6 +110,7 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
+#pragma warning restore CS0618
 
         /// <inheritdoc/>
         public override void OnCameraCleanup(CommandBuffer cmd) { }
