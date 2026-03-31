@@ -69,7 +69,7 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
         public void Cleanup()           => _material = null;
 
         /// <inheritdoc/>
-#pragma warning disable CS0618 // URP Compatibility Mode API — obsolete in URP 17+, retained for compatibility
+#pragma warning disable CS0618, CS0672 // URP Compatibility Mode API — obsolete in URP 17+, retained for compatibility
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             // Attach to the camera colour target without clearing it.
@@ -110,7 +110,7 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
             context.ExecuteCommandBuffer(cmd);
             CommandBufferPool.Release(cmd);
         }
-#pragma warning restore CS0618
+#pragma warning restore CS0618, CS0672
 
         /// <inheritdoc/>
         public override void OnCameraCleanup(CommandBuffer cmd) { }
