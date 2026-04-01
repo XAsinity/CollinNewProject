@@ -59,6 +59,12 @@ public class DayNightCycle : MonoBehaviour
     void Start()
     {
         currentTimeOfDay = startTimeOfDay;
+
+        // Auto-resolve skyboxMaterial from RenderSettings when not assigned in the Inspector.
+        // This prevents UpdateSkyboxMaterial() from silently returning every frame and
+        // fixes the symptom of sun/moon discs being stationary in the skybox.
+        if (skyboxMaterial == null)
+            skyboxMaterial = RenderSettings.skybox;
     }
 
     void Update()
@@ -69,9 +75,11 @@ public class DayNightCycle : MonoBehaviour
             if (currentTimeOfDay >= 1f) currentTimeOfDay -= 1f;
         }
 
-        UpdateSkyboxMaterial();
+        // Update light transforms first so UpdateSkyboxMaterial pushes the current
+        // frame's directions rather than the previous frame's rotations.
         UpdateSunLight();
         UpdateMoonLight();
+        UpdateSkyboxMaterial();
         UpdateAmbient();
         UpdateFog();
     }

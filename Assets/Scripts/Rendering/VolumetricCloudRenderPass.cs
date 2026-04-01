@@ -43,6 +43,16 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
             return;
         }
 
+        // Skip cameras that don't need volumetric clouds:
+        //   - SceneView: editor overhead — clouds would render on every scene navigation
+        //   - Reflection: reflection probes see only a static cube; raymarching is wasted
+        //   - Preview:    Inspector material/model previews don't need clouds
+        CameraType camType = renderingData.cameraData.cameraType;
+        if (camType == CameraType.SceneView ||
+            camType == CameraType.Reflection ||
+            camType == CameraType.Preview)
+            return;
+
         _pass.Setup(cloudMaterial);
         renderer.EnqueuePass(_pass);
     }

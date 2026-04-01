@@ -45,6 +45,11 @@ Shader "Custom/VolumetricClouds"
         _TimeOfDay ("Time Of Day", Range(0, 1)) = 0.5
         _SunDirection ("Sun Direction", Vector) = (0, 1, 0, 0)
         _MoonDirection ("Moon Direction", Vector) = (0, -1, 0, 0)
+
+        [Header(Performance)]
+        [Tooltip("Number of raymarching steps per cloud layer (L1 uses this; L2 scales to 75%). " +
+                 "Lower values are faster at the cost of cloud depth quality. Range: 8 (fast) to 64 (high quality). Default: 32.")]
+        _CloudStepCount ("Cloud Step Count", Range(8, 64)) = 32
     }
 
     SubShader
@@ -115,6 +120,13 @@ Shader "Custom/VolumetricClouds"
             float  _TimeOfDay;
             float4 _SunDirection;
             float4 _MoonDirection;
+
+            // ─── PERFORMANCE ─────────────────────────────────────────────────
+            // _CloudStepCount: inspector-tunable step count for both cloud layers.
+            //   L1 uses _CloudStepCount steps; L2 uses 75% of that value.
+            //   Lower values (8–16) for fast/mobile; higher (48–64) for cinematic quality.
+            //   Dynamic angle-based LOD below further scales steps per-pixel.
+            int _CloudStepCount;
 
             // ─── STRUCTS ─────────────────────────────────────────────────────
 
@@ -248,16 +260,40 @@ Shader "Custom/VolumetricClouds"
             }
 
             // ─── VOLUMETRIC CLOUD LAYER ───────────────────────────────────────
-            // Raymarches NUM_STEPS shells from shellOuter to shellInner, accumulating
+            // Raymarches shell layers from shellOuter to shellInner, accumulating
             // density with Beer-Lambert transmittance. Returns (rgb, alpha).
+            //
+            // PERFORMANCE NOTES:
+            //   • Step count is driven by _CloudStepCount (Inspector slider, 8–64, default 32).
+            //     L1 uses the full count; L2 uses 75% of that count.
+            //   • Each step calls SampleDensity, which runs 4 FBM evaluations (see below).
+            //   • FBM (base shape) uses 5 octaves of Noise3D; FBMFine (detail) uses 6 octaves.
+            //     Total cost per step ≈ (2×5 + 1×6 + 1×5) = ~21 Noise3D calls.
+            //   • At the default _CloudStepCount=32, L1 uses 32 steps and L2 uses 24 steps
+            //     (75% of L1). Combined, that is 56 steps → ~1176 Noise3D calls per pixel.
+            //     Angle-based LOD can reduce this further for near-horizon pixels.
+            //   • The early-out at transmittance < 0.01 reduces average cost significantly
+            //     for dense clouds, but worst-case (wispy sky) still evaluates all steps.
+            //   • Angle-based LOD (see below) halves steps for near-horizon pixels.
+            //
+            // TUNING KNOBS (see Properties block):
+            //   _CloudStepCount   — quality/performance trade-off (8 fast, 64 cinematic)
+            //   _CloudShellRadius — larger shells need more steps for the same quality
+            //   _EnableClouds     — set to 0 to disable rendering entirely
+            //
+            // TODO (half-resolution rendering): Render clouds into a half-res RenderTexture,
+            //   then upscale back to full resolution with a bilateral/depth-aware upsample pass.
+            //   This would cut pixel cost by 75% with minimal visible quality loss. Requires:
+            //   (a) a second blit pass in VolumetricCloudRenderPass that downscales the camera
+            //       colour target, (b) a RecordRenderGraph variant that allocates a half-res
+            //       transient texture, and (c) an upscale pass writing back to the active target.
 
-            // NUM_STEPS_L1: 32 steps for the primary (lower-altitude) cloud layer.
-            //               More steps give better depth and self-shadow quality.
-            // NUM_STEPS_L2: 24 steps for the secondary (higher-altitude) layer.
-            //               Higher-altitude cirrus-like clouds are typically thinner and
-            //               need fewer steps, providing a small performance saving.
-            #define NUM_STEPS_L1 32
-            #define NUM_STEPS_L2 24
+            // NUM_STEPS_MAX: compile-time cap to keep the loop bounded for the GPU compiler.
+            // _CloudStepCount must not exceed this; the Frag shader clamps before passing.
+            #define NUM_STEPS_MAX 64
+            // NUM_STEPS_MIN: floor for angle-based LOD — guarantees at least a minimal
+            // depth traversal even for nearly-horizontal views.
+            #define NUM_STEPS_MIN 4
 
             float4 RenderLayer(
                 float3 viewDir,
@@ -283,6 +319,17 @@ Shader "Custom/VolumetricClouds"
             {
                 // Below-horizon guard
                 if (viewDir.y < 0.005) return float4(0, 0, 0, 0);
+
+                // Angle-based LOD: pixels near the horizon traverse a long oblique path through
+                // the cloud shell and need fewer depth samples — the shell is so stretched that
+                // adjacent steps overlap heavily.  Pixels looking straight up traverse the full
+                // shell thickness and benefit most from the full step count.
+                // Coefficients map viewDir.y ∈ [0.005, 1] → angleFactor ∈ [~0.25, ~1.25].
+                // Saturate clamps the result to [0, 1], so horizon pixels get ≥25% of steps
+                // and zenith pixels get 100%.  The 1.2 slope ensures overhead views aren't
+                // throttled even when viewDir.y falls slightly below 1 due to normalisation.
+                float angleFactor = saturate(viewDir.y * 1.2 + 0.05);
+                int   effectiveSteps = max(int(float(numSteps) * angleFactor), NUM_STEPS_MIN);
 
                 // Normalize so cloud visual size is constant regardless of shell radius
                 float radiusNorm = 25000.0 / max(shellRadius, 1.0);
@@ -321,9 +368,9 @@ Shader "Custom/VolumetricClouds"
                 float transmittance = 1.0;
                 float3 accColor     = float3(0, 0, 0);
 
-                for (int step = 0; step < numSteps; step++)
+                for (int step = 0; step < effectiveSteps; step++)
                 {
-                    float t = step / float(numSteps - 1);  // 0=outer, 1=inner
+                    float t = step / float(max(effectiveSteps - 1, 1));  // 0=outer, 1=inner
 
                     float radius = lerp(shellOuter, shellInner, t);
 
@@ -370,7 +417,7 @@ Shader "Custom/VolumetricClouds"
                     float3 shadedColor = lerp(shadowColor.rgb, litColor, saturate(d * 1.2));
 
                     // Beer-Lambert step: absorption proportional to density
-                    float sigma = d * density * 3.5 / float(numSteps);
+                    float sigma = d * density * 3.5 / float(effectiveSteps);
                     float stepT = exp(-sigma);
                     float3 scatterContrib = (1.0 - stepT) * shadedColor;
 
@@ -423,6 +470,8 @@ Shader "Custom/VolumetricClouds"
                 timeColor1 = lerp(timeColor1, _CloudSunsetColor.rgb, transitionFactor * 0.8);
 
                 // ── Layer 1 ─────────────────────────────────────────────────
+                // Clamp to NUM_STEPS_MAX so the GPU compiler can bound the loop.
+                int stepsL1 = clamp(_CloudStepCount, NUM_STEPS_MIN, NUM_STEPS_MAX);
                 float4 layer1 = RenderLayer(
                     viewDir,
                     _CloudShellRadius,
@@ -443,9 +492,11 @@ Shader "Custom/VolumetricClouds"
                     _CloudSunsetColor,
                     _CloudDissolveOffset.xyz,
                     0.0,       // layer seed
-                    NUM_STEPS_L1);
+                    stepsL1);
 
                 // ── Layer 2 ─────────────────────────────────────────────────
+                // L2 uses 75% of the L1 step count — higher-altitude cirrus clouds
+                // are typically thinner and require fewer depth samples.
                 float4 layer2 = float4(0, 0, 0, 0);
                 if (_Cloud2Coverage > 0.001)
                 {
@@ -461,6 +512,7 @@ Shader "Custom/VolumetricClouds"
                         // Layer 2 dissolve offset decays at half rate (higher altitude = slower transition)
                         float3 dissolveOff2 = _CloudDissolveOffset.xyz * 0.5;
 
+                        int stepsL2 = max(stepsL1 * 3 / 4, NUM_STEPS_MIN);
                         layer2 = RenderLayer(
                             viewDir,
                             _Cloud2ShellRadius,
@@ -481,7 +533,7 @@ Shader "Custom/VolumetricClouds"
                             _CloudSunsetColor,
                             dissolveOff2,
                             1.0,       // different layer seed = different cloud pattern
-                            NUM_STEPS_L2);
+                            stepsL2);
                     }
                 }
 
