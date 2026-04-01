@@ -1329,6 +1329,8 @@ public class WeatherManager : MonoBehaviour
             cloudMaterial.SetColor("_Cloud2ShadowColor", Color.Lerp(from.cloud2ShadowColor, to.cloud2ShadowColor, t));
             cloudMaterial.SetFloat("_Cloud2Opacity",     Mathf.Lerp(from.cloud2Opacity,     to.cloud2Opacity,     t));
 
+            cloudMaterial.SetFloat("_CloudZenithBlend",  Mathf.Lerp(from.cloudZenithBlend,  to.cloudZenithBlend,  t));
+
             // Directional dissolve offset — combines the departing storm rolling away
             // (positive direction) with incoming clouds rolling in from the horizon
             // (negative direction, decays to zero as transition completes).
