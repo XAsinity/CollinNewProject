@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using UnityEngine.Rendering.RenderGraphModule;
 
 /// <summary>
 /// URP ScriptableRendererFeature that injects the volumetric cloud rendering pass
@@ -67,6 +68,56 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
 
         public void Setup(Material mat) => _material = mat;
         public void Cleanup()           => _material = null;
+
+        // ── RenderGraph path (URP 17 / Unity 6+) ─────────────────────────────
+
+        /// <summary>Data passed into the RenderGraph render function.</summary>
+        private class PassData
+        {
+            public Material material;
+            public Matrix4x4 invProj;
+            public Matrix4x4 invView;
+        }
+
+        /// <inheritdoc/>
+        public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
+        {
+            if (_material == null) return;
+
+            UniversalCameraData   cameraData   = frameData.Get<UniversalCameraData>();
+            UniversalResourceData resourceData = frameData.Get<UniversalResourceData>();
+
+            Camera cam = cameraData.camera;
+
+            // Same matrix logic as the legacy Execute() path.
+            Matrix4x4 gpuProj = GL.GetGPUProjectionMatrix(cam.projectionMatrix, true);
+            Matrix4x4 invProj = gpuProj.inverse;
+            Matrix4x4 invView = cam.cameraToWorldMatrix;
+
+            using (var builder = renderGraph.AddRasterRenderPass<PassData>(k_Tag, out PassData passData, s_Sampler))
+            {
+                passData.material = _material;
+                passData.invProj  = invProj;
+                passData.invView  = invView;
+
+                // Write to the active camera colour texture (composite over skybox).
+                builder.SetRenderAttachment(resourceData.activeColorTexture, 0);
+
+                builder.SetRenderFunc(static (PassData data, RasterGraphContext ctx) =>
+                {
+                    // Set per-camera matrices so the shader can reconstruct world-space rays.
+                    data.material.SetMatrix("_InvProjectionMatrix", data.invProj);
+                    data.material.SetMatrix("_CloudCameraInvView",  data.invView);
+
+                    // Draw a fullscreen procedural triangle; the material blends via
+                    // SrcAlpha / OneMinusSrcAlpha so clouds composite naturally.
+                    ctx.cmd.DrawProcedural(Matrix4x4.identity, data.material, 0,
+                                           MeshTopology.Triangles, 3, 1);
+                });
+            }
+        }
+
+        // ── Legacy Compatibility Mode path (URP < 17 / RenderGraph disabled) ─
 
         /// <inheritdoc/>
 #pragma warning disable CS0618, CS0672 // URP Compatibility Mode API — obsolete in URP 17+, retained for compatibility
