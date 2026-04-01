@@ -116,7 +116,7 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
                 builder.SetRenderFunc(static (PassData data, RasterGraphContext ctx) =>
                 {
                     // Set per-camera matrices so the shader can reconstruct world-space rays.
-                    data.material.SetMatrix("_InvProjectionMatrix", data.invProj);
+                    data.material.SetMatrix("_CloudInvProjectionMatrix", data.invProj);
                     data.material.SetMatrix("_CloudCameraInvView",  data.invView);
 
                     // Draw a fullscreen procedural triangle; the material blends via
@@ -154,7 +154,7 @@ public class VolumetricCloudRenderFeature : ScriptableRendererFeature
             Matrix4x4 invProj    = gpuProj.inverse;
             Matrix4x4 invView    = cam.cameraToWorldMatrix;   // camera → world (rotation + translation)
 
-            _material.SetMatrix("_InvProjectionMatrix", invProj);
+            _material.SetMatrix("_CloudInvProjectionMatrix", invProj);
             _material.SetMatrix("_CloudCameraInvView",  invView);
 
             CommandBuffer cmd = CommandBufferPool.Get(k_Tag);

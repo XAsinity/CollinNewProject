@@ -70,7 +70,7 @@ Shader "Custom/VolumetricClouds"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
             // ─── CAMERA MATRICES (set from C# render pass) ──────────────────
-            float4x4 _InvProjectionMatrix;
+            float4x4 _CloudInvProjectionMatrix;
             float4x4 _CloudCameraInvView;
 
             // ─── CONSTANTS ───────────────────────────────────────────────────
@@ -444,7 +444,7 @@ Shader "Custom/VolumetricClouds"
                 if (_EnableClouds < 0.5) return float4(0, 0, 0, 0);
 
                 // ── Reconstruct world-space view direction from NDC ─────────
-                float4 viewPos = mul(_InvProjectionMatrix, float4(IN.ndcPos, UNITY_RAW_FAR_CLIP_VALUE, 1.0));
+                float4 viewPos = mul(_CloudInvProjectionMatrix, float4(IN.ndcPos, UNITY_RAW_FAR_CLIP_VALUE, 1.0));
                 float3 viewDir = normalize(mul((float3x3)_CloudCameraInvView, viewPos.xyz / viewPos.w));
 
                 // Above-horizon guard (clouds never appear underground)
