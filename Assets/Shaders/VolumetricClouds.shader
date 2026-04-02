@@ -47,7 +47,7 @@ Shader "Custom/VolumetricClouds"
         _MoonDirection ("Moon Direction", Vector) = (0, -1, 0, 0)
 
         [Header(Performance)]
-        [Tooltip("Raymarching steps per cloud layer (L1=100%, L2=75%). Range: 8 (fast) to 64 (high quality). Default: 32.")]
+        [Tooltip("Raymarching steps per cloud layer. Lower is faster, higher is better quality.")]
         _CloudStepCount ("Cloud Step Count", Range(8, 64)) = 32
     }
 
