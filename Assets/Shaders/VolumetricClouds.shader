@@ -71,6 +71,13 @@ Shader "Custom/VolumetricClouds"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #define CLOUD_EPSILON_SMALL 0.001
             #define CLOUD_EPSILON_W 0.0001
+            #ifndef UNITY_RAW_FAR_CLIP_VALUE
+                #if defined(UNITY_REVERSED_Z)
+                    #define UNITY_RAW_FAR_CLIP_VALUE 0.0
+                #else
+                    #define UNITY_RAW_FAR_CLIP_VALUE 1.0
+                #endif
+            #endif
 
             float4x4 _CloudInvProjectionMatrix;
             float4x4 _CloudCameraInvView;
