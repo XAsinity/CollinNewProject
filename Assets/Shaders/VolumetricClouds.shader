@@ -233,7 +233,7 @@ Shader "Custom/VolumetricClouds"
                     viewDir, cloudScale, cloudSpeed, coverage, density,
                     sharpness, edgeSoftness, variation, dissolveOffset, layerSeed);
 
-                float sunNdotV = saturate(dot(normalize(_SunDirection.xyz), normalize(viewDir)) * 0.5 + 0.5);
+                float sunNdotV = saturate(dot(normalize(_SunDirection.xyz), viewDir) * 0.5 + 0.5);
                 float horizonLight = smoothstep(0.0, 0.35, viewDir.y);
                 float lightTerm = saturate(0.35 + sunNdotV * 0.65) * horizonLight;
 
@@ -249,7 +249,7 @@ Shader "Custom/VolumetricClouds"
             {
                 if (_EnableClouds < 0.5) return float4(0, 0, 0, 0);
 
-                float4 viewPos = mul(_CloudInvProjectionMatrix, float4(IN.ndcPos, 1.0, 1.0));
+                float4 viewPos = mul(_CloudInvProjectionMatrix, float4(IN.ndcPos, UNITY_RAW_FAR_CLIP_VALUE, 1.0));
                 float3 viewDir = normalize(mul((float3x3)_CloudCameraInvView, viewPos.xyz / max(viewPos.w, CLOUD_EPSILON_W)));
                 if (viewDir.y <= 0.001) return float4(0, 0, 0, 0);
 
