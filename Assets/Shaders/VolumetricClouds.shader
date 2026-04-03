@@ -69,6 +69,8 @@ Shader "Custom/VolumetricClouds"
             #pragma fragment Frag
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #define CLOUD_EPSILON_SMALL 0.001
+            #define CLOUD_EPSILON_W 0.0001
 
             float4x4 _CloudInvProjectionMatrix;
             float4x4 _CloudCameraInvView;
@@ -190,7 +192,7 @@ Shader "Custom/VolumetricClouds"
                 float3 dissolveOffset,
                 float  layerSeed)
             {
-                float2 windDir = normalize(_CloudDirection.xz + float2(0.001, 0.001));
+                float2 windDir = normalize(_CloudDirection.xz + float2(CLOUD_EPSILON_SMALL, CLOUD_EPSILON_SMALL));
                 float2 windOffset = windDir * cloudSpeed * _Time.y * 0.03;
                 float2 uv = viewDir.xz * max(cloudScale, 0.01) * 0.75
                           + windOffset
@@ -248,7 +250,7 @@ Shader "Custom/VolumetricClouds"
                 if (_EnableClouds < 0.5) return float4(0, 0, 0, 0);
 
                 float4 viewPos = mul(_CloudInvProjectionMatrix, float4(IN.ndcPos, 1.0, 1.0));
-                float3 viewDir = normalize(mul((float3x3)_CloudCameraInvView, viewPos.xyz / max(viewPos.w, 0.0001)));
+                float3 viewDir = normalize(mul((float3x3)_CloudCameraInvView, viewPos.xyz / max(viewPos.w, CLOUD_EPSILON_W)));
                 if (viewDir.y <= 0.001) return float4(0, 0, 0, 0);
 
                 float zenithBlend = smoothstep(0.55, 0.95, viewDir.y) * saturate(_CloudZenithBlend);
